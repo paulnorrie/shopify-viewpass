@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  AWS CloudFormation template for creating resources for the shopify-viewpass app.
+
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Resource: IAM Execution Role for the Lambda Function
+  # ---------------------------------------------------------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'shopify-app-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2010-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ://amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        # Standard policy to allow writing console logs to CloudWatch
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        # Inline policy allowing the function to interact with your specific DynamoDB table
+        - PolicyName: DynamoDBShopifySessionsTableAccess
+          PolicyDocument:
+            Version: '2010-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !ImportValue 'shopify-sessions-stack-TableArn' # Matches the Export from your table stack
+                  - !Sub
+                    - '${TableArn}/index/*'
+                    - TableArn: !ImportValue 'shopify-sessions-stack-TableArn'
+
+  # ---------------------------------------------------------------------------
+  # Resource: DynamoDB Table for Shopify Sessions
+  # ---------------------------------------------------------------------------
+  ShopifySessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: shopify_sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: shop
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: shop_index
+          KeySchema:
+            - AttributeName: shop
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - id
+              - shop
+      # Enable TTL using Shopify's default expiration attribute
+      TimeToLiveSpecification:
+        AttributeName: expires
+        Enabled: true
+
+
+  # ---------------------------------------------------------------------------
+  # Resource: Lambda Function for Shopify App Backend
+  # ---------------------------------------------------------------------------
+  ShopifyAppLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'shopify-backend-handler'
+      Runtime: nodejs20.x                    # Uses modern, LTS Node.js runtime
+      Handler: index.handler                 # Points to export named 'handler' in index.js file
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 15                            # Maximum runtime execution limit (in seconds)
+      MemorySize: 512                        # Allocated RAM size (in MB)
+      Environment:
+        Variables:
+          # Pass database info directly; AWS SDK detects IAM credentials automatically
+          SESSION_TABLE_NAME: 'shopify_sessions' 
+
+
+
+
+
+Outputs:
+  
+  TableArn:
+    Description: 'The ARN of the created Shopify sessions table'
+    Value: !GetAtt ShopifySessionsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TableArn'
+  
+  LambdaFunctionArn:
+    Description: 'The ARN of the Shopify backend Lambda function'
+    Value: !GetAtt ShopifyAppLambdaFunction.Arn
