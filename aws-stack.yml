@@ -11,14 +11,14 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'shopify-app-lambda-role'
+      RoleName: 'shopify-app-lambda-role'
       AssumeRolePolicyDocument:
-        Version: '2010-10-17'
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
               Service:
-                - ://amazonaws.com
+                - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:
@@ -28,7 +28,7 @@ Resources:
         # Inline policy allowing the function to interact with your specific DynamoDB table
         - PolicyName: DynamoDBShopifySessionsTableAccess
           PolicyDocument:
-            Version: '2010-10-17'
+            Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
@@ -39,10 +39,10 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:Scan
                 Resource:
-                  - !ImportValue 'shopify-sessions-stack-TableArn' # Matches the Export from your table stack
+                  - !GetAtt ShopifySessionsTable.Arn
                   - !Sub
                     - '${TableArn}/index/*'
-                    - TableArn: !ImportValue 'shopify-sessions-stack-TableArn'
+                    - TableArn: !GetAtt ShopifySessionsTable.Arn
 
   # ---------------------------------------------------------------------------
   # Resource: DynamoDB Table for Shopify Sessions
@@ -69,7 +69,7 @@ Resources:
             ProjectionType: INCLUDE
             NonKeyAttributes:
               - id
-              - shop
+              # - shop
       # Enable TTL using Shopify's default expiration attribute
       TimeToLiveSpecification:
         AttributeName: expires
@@ -82,9 +82,9 @@ Resources:
   ShopifyAppLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub 'shopify-backend-handler'
+      FunctionName: 'shopify-backend-handler'
       Runtime: nodejs20.x                    # Uses modern, LTS Node.js runtime
-      Handler: index.handler                 # Points to export named 'handler' in index.js file
+      Handler: 'index.handler'                 # Points to export named 'handler' in index.js file
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 15                            # Maximum runtime execution limit (in seconds)
       MemorySize: 512                        # Allocated RAM size (in MB)
@@ -92,6 +92,11 @@ Resources:
         Variables:
           # Pass database info directly; AWS SDK detects IAM credentials automatically
           SESSION_TABLE_NAME: 'shopify_sessions' 
+      Code:
+        ZipFile: |
+          exports.handler = async () => {
+            return { statusCode: 200, body: "OK" };
+          };
 
 
 
