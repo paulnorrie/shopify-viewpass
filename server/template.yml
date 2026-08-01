@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31 # AWS SAM
+
+Description:
+  AWS CloudFormation & SAM template for creating resources for the shopify-viewpass backend.
+
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # Resource: IAM Execution Role for the Lambda Function
+  #           Allow access to DynamoDb and SSM Secret Parameters
+  # ---------------------------------------------------------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'shopify-app-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        # Standard policy to allow writing console logs to CloudWatch
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        # Inline policy allowing the function to interact with other resources
+        - PolicyName: DynamoDbTablesAndSSMAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Allow access to DynamoDb Table
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ShopifySessionsTable.Arn
+                  - !Sub
+                    - '${TableArn}/index/*'
+                    - TableArn: !GetAtt ShopifySessionsTable.Arn
+              # Allow access to all SSM Parameters
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+              # 2. Allow decrypting the SecureString via KMS
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm'
+
+
+  # ---------------------------------------------------------------------------
+  # Resource: DynamoDB Table for Shopify Sessions
+  # ---------------------------------------------------------------------------
+  ShopifySessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: shopify_sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: shop
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: shop_index
+          KeySchema:
+            - AttributeName: shop
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - id
+              # - shop
+      # Enable TTL using Shopify's default expiration attribute
+      TimeToLiveSpecification:
+        AttributeName: expires
+        Enabled: true
+
+
+  # ---------------------------------------------------------------------------
+  # Resource: Lambda Function for Shopify App Backend
+  # ---------------------------------------------------------------------------
+  ShopifyAppLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: 'shopify-backend-handler'
+      Runtime: nodejs24.x                    # Uses modern, LTS Node.js runtime
+      Handler: 'index.handler'                 # Points to export named 'handler' in index.js file
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 15                            # Maximum runtime execution limit (in seconds)
+      MemorySize: 512                        # Allocated RAM size (in MB)
+      Environment:
+        Variables:
+          # Pass database info directly; AWS SDK detects IAM credentials automatically
+          SESSION_TABLE_NAME: 'shopify_sessions' 
+      Code: ./src
+    Metadata: # Adds esbuild bundling support
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        EntryPoints: 
+          - index.js  
+
+  # ---------------------------------------------------------------------------
+  # Resource: HTTP API Gateway (API Gateway v2)
+  # ---------------------------------------------------------------------------
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: 'shopify-backend-http-api'
+      ProtocolType: HTTP
+      Description: 'HTTP API Gateway routing traffic to the Shopify backend Lambda'
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ShopifyAppLambdaFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  HttpApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: '$default'
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref HttpApiIntegration
+
+  LambdaPermissionForHttpApi:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ShopifyAppLambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*'
+
+
+
+
+
+Outputs:
+  
+
+  TableArn:
+    Description: 'The ARN of the created Shopify sessions table'
+    Value: !GetAtt ShopifySessionsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TableArn'
+  
+  LambdaFunctionArn:
+    Description: 'The ARN of the Shopify backend Lambda function'
+    Value: !GetAtt ShopifyAppLambdaFunction.Arn
+
+  HttpApiUrl:
+    Description: 'The URL of the HTTP API endpoint'
+    Value: !GetAtt HttpApi.ApiEndpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-HttpApiUrl'

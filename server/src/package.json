@@ -1,0 +1,14 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "set-secret": "f() { val=\"$1\"; if [ \"$val\" = \"--\" ]; then val=\"$2\"; shift 2; else shift 1; fi; aws ssm put-parameter --name \"/shopify/client_secret\" --value \"$val\" --type \"SecureString\" --overwrite \"$@\"; }; f",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

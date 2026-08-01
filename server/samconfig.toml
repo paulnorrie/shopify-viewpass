@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "shopify-viewpass"
+resolve_s3 = true
+s3_prefix = "shopify-viewpass"
+profile = "iamadmin-general"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"

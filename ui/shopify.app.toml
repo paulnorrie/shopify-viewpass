@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "89831ce5616715f0ecd725e5c3d8c597"
+name = "viewpass"
+application_url = "https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/" # API Gateway URL
+                # Can test sending a webhook while `shopify app dev` is running locally with
+                # `shopify app webhook trigger --topic=orders/create --address=https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/webhooks/orders/create --delivery-method=http --api-version=2026-01`
+embedded = true
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"       # do we need this here or just backend?
+  topics = ["orders/paid"]            # requires read_orders access scope
+
+
+[access.admin]
+direct_api_mode = "online"
+embedded_app_direct_api_access = true   # do we need? (change to False?)
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders"
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+

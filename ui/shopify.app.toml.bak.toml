@@ -1,0 +1,35 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "266ea6dc768ec290c45fa97aeec37f69"
+name = "viewpass"
+application_url = "https://shopify.dev/apps/default-app-home"  # default for extension-only app
+embedded = true
+
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-10"
+  
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/orders/create"
+  topics = ["orders/create"]            # requires read_orders access scope
+
+[access.admin]
+direct_api_mode = "online"
+embedded_app_direct_api_access = true   # TODO: false - do not need DirectAPI for GraphQLs
+
+[access_scopes]
+scopes = "read_orders, write_products"  # TODO: remove write_products
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
+
+[sidekick]
+extensions_summary = "Read FAQ entries stored in the app"
+
