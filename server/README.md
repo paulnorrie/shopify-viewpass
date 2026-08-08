@@ -12,12 +12,17 @@
 An AWS Stack needs to be created. If it does not exist you need to first populate the
 Shopify Client Secret to be able to authenticate webhook calls from Shopify:
 ```bash
-aws ssm put-parameter --name "/shopify/client_secret" --value "YOUR_ACTUAL_SHOPIFY_CLIENT_SECRET" \
+aws ssm put-parameter --name "/shopify/secret" --value "YOUR_ACTUAL_SHOPIFY_SECRET" \
+    --type "SecureString" --overwrite --profile <your-aws-profile>
+
+aws ssm put-parameter --name "/shopify/client_id" --value "YOUR_ACTUAL_SHOPIFY_CLIENT_ID" \
     --type "SecureString" --overwrite --profile <your-aws-profile>
 ```
 
-The Client Secret can be obtained from your [Shopify App Dev Dashboard](https://dev.shopify.com/dashboard)
-in the **Settings** menu under **Secret**.
+These can be obtained from your [Shopify App Dev Dashboard](https://dev.shopify.com/dashboard)
+in the **Settings** menu under **Credentials**:
+  - Client ID
+  - Secret 
 
 ### Create or update the AWS Stack
 ```bash

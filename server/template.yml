@@ -125,6 +125,21 @@ Resources:
       Name: 'shopify-backend-http-api'
       ProtocolType: HTTP
       Description: 'HTTP API Gateway routing traffic to the Shopify backend Lambda'
+      CorsConfiguration:
+        AllowOrigins:
+          - "https://extensions.shopifycdn.com"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Shopify-Topic 
+          - X-Shopify-Shop-Domain
+          - X-Shopify-Hmac-Sha256
+          - X-Shopify-Api-Client-Id
+        MaxAge: 300
 
   HttpApiStage:
     Type: AWS::ApiGatewayV2::Stage
