@@ -155,7 +155,7 @@ const route = async (routeKey, params, body) => {
     console.log(`Routing ${routeKey} with ${JSON.stringify(params)}\n${body}`);
     try {
         switch (routeKey) {
-            case "GET /products/{productId+}":
+            case "GET /products/{productId+}": {
                 const product = await getProduct(params.productId);
                 if (product) {
                     return {statusCode:200, body:product};
@@ -163,17 +163,18 @@ const route = async (routeKey, params, body) => {
                     return {statusCode:404, body:"Not Found"};
                 }
                 break;
-
-            case "POST /products/{productId+}":
-                const videos = JSON.parse(body)?.videos || [];
-                const ok = await postProduct(params.productId, videos);
+            }
+            case "POST /products/{productId+}": {
+                //const videos = JSON.parse(body)?.videos || [];
+                const product = JSON.parse(body);
+                const ok = await postProduct(params.productId, product);
                 return {statusCode:200, body:""};
                 break;
-
-            case "POST /webhooks/orders/paid":
+            }
+            case "POST /webhooks/orders/paid": {
                 return {statusCode:200, body:""};
                 break;
-
+            }
             default:
                 return {statusCode:404, body:"Not Found"};
         }

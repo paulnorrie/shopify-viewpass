@@ -10,6 +10,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dyn
 /**
  * @typedef {Object} Product
  * @property {string} productId - Shopify id of the product
+ * @property {number} licenceDurationDays - number of days the product is available for
  * @property {Video[]} videos - The videos in the product
  */
 
@@ -18,7 +19,7 @@ const baseClient = new DynamoDBClient({}); // use the same region this is runnin
 const docClient = DynamoDBDocumentClient.from(baseClient);
 
 const TABLE_NAME = "products";
-
+const DEFAULT_LICENCE_DAYS = 3;
 
 
 /**
@@ -66,27 +67,27 @@ export const getProduct = async (productId) => {
  * the data types of the video information are saved correctly so that the database reliably
  * returns valid data.
  * 
- * @param {string} productId the Shopify Product Id
- * @param {Video[]} videos an array of videos in the product. If any element in the array is not of
- * of type Video no elements are saved and an Error is thrown.
+ * @param {Product} product, default value is applied to licenceDurationDays if missing 
  * 
  * @throws {Error} if the given information could not be saved
  */
-export const postProduct = async (productId, videos) => {
-  console.log(`postProduct ${JSON.stringify(videos)}`);
-  if (!productId || !isValidVideoArray(videos)) {
+export const postProduct = async (productId, product) => {
+  console.log(`postProduct ${JSON.stringify(product)}`);
+  if (!productId || !isValidVideoArray(product.videos)) {
     const errStr = "Expected productId string and Video[]. Got productId=" + productId +
                     " as " +  typeof productId +
-                    ", videos=" + videos + " as " + typeof videos
+                    ", videos=" + product.videos + " as " + typeof product.videos
     throw new Error(errStr);
   }
+  product.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
 
   try {
     const params = {
         TableName: TABLE_NAME,
         Item: {
             productId: productId,
-            videos: videos,
+            licenceDurationDays: product.licenceDurationDays,
+            videos: product.videos,
         },
     };
     

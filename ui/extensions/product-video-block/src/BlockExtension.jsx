@@ -6,15 +6,16 @@ export default async () => {
   render(<Extension />, document.body);
 }
 
-/** @typedef {{ videoUrl: string, showAfterDays: number }} VideoRow */
+/** @typedef {{ videoUrl: string, showAfterDays: number }} Video */
 
 function Extension() {
   const {data, extension: {target}} = shopify;
   console.log("Product Details Extension mounting");
   const productId = data.selected[0].id;
 
-  // initially there are no videos
-  const [rows, setRows] = useState(/** @type {VideoRow[]} */ ([]));
+  
+  const [videos, setVideos] = useState(/** @type {Video[]} */ ([]));
+  const [licenceDurationDays, setLicenceDurationDays] = useState(3);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -33,7 +34,8 @@ function Extension() {
                 console.log(`Response ${response.status} ${response.headers.get('content-length')}`);
                 const payload = await response.json();  
                 console.log(`Payload of Product Extension is ${payload}`);
-                setRows(payload?.videos || []); 
+                setVideos(payload?.videos || []); 
+                setLicenceDurationDays(payload?.licenceDurationDays || 3);
             }
         }
       } catch (error) {
@@ -43,29 +45,25 @@ function Extension() {
 
     loadInitialData();
 
-  }, []); 
+  }, [productId]); 
 
 
   /**
    * Add a new blank row
    */
-  const markDirty = () => setIsDirty(true);
-
-  const createVideoRow = () => ({ videoUrl: '', showAfterDays: 0 });
-
   const addRow = () => {
-    setRows(currentRows => [...currentRows, createVideoRow()]);
-    markDirty();
+    setVideos(currentRows => [...currentRows, { videoUrl: '', showAfterDays: 0 }]);
+    setIsDirty(true);
   };
 
 
   /**
-   * Delete a specified row.
+   * Delete a specified row.  This relies on the rows never changing order.
    * @param {number} indexToDelete 
    */
   const deleteRow = async (indexToDelete) => {
-    setRows(currentRows => currentRows.filter((_, index) => index !== indexToDelete));
-    markDirty();
+    setVideos(currentRows => currentRows.filter((_, index) => index !== indexToDelete));
+    setIsDirty(true);
   };
 
 
@@ -76,14 +74,23 @@ function Extension() {
    * @param {string} field field to change (e.g. "videoUrl")
    * @param {*} value of the field now
    */
-  const handleInputChange = (index, field, value) => {
-        const updated = /** @type {VideoRow[]} */ ([...rows]);
+  const onVideoRowChange = (index, field, value) => {
+        const updated = /** @type {Video[]} */ ([...videos]);
         const nextRow = {...updated[index], [field]: value};
         updated[index] = nextRow;
-        setRows(updated);
+        setVideos(updated);
         setIsDirty(true);
   }
 
+   /**
+   * Record change in the number of licence days
+   * 
+   * @param {number} value of the field now
+   */
+  const onLicenceDaysChange = (value) => {
+        setLicenceDurationDays(value);
+        setIsDirty(true);
+  }
 
   /**
    * Save the records
@@ -91,14 +98,13 @@ function Extension() {
    */ 
   const onSubmit = async (event) => {
     
-    console.log("Saving!!! ", rows, " = ", JSON.stringify(rows), " = ", JSON.stringify({videos: rows}));
+    console.log("Saving!!! ", videos, " = ", JSON.stringify(videos), " = ", JSON.stringify({videos: videos}));
     setIsSaving(true);
     event.preventDefault(); // stop browser doing default actions
 
     try {
              
         // Post to backend
-        //const response = event.waitUntil(
         const response = await
             fetch(`/products/${encodeURIComponent(productId)}`, {
                 method: 'POST',
@@ -106,10 +112,10 @@ function Extension() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    videos: rows
+                    licenceDurationDays: licenceDurationDays,
+                    videos: videos
                 })
             })
-        //);
 
         if (!response.ok) {
             throw new Error('Failed to save videos');
@@ -133,6 +139,19 @@ function Extension() {
   return (
     <s-admin-block heading="Videos" id="videos-block">
         <s-form id={`videos-form`} data-save-bar onSubmit={onSubmit}>
+        
+        
+        <s-number-field 
+            name="licenceDays"
+            value={String(licenceDurationDays)}
+            min={1} 
+            label="Number of days the videos are available for"
+            onInput={(event) => {
+                        const target = /** @type {{ value?: string | null }} */ (event.target);
+                        onLicenceDaysChange(Number(target?.value ?? 0));
+                      }}/>
+        
+        
         {/* Header Grid Line: Video URL, Delay */}
         <s-stack direction="block">
         
@@ -149,7 +168,7 @@ function Extension() {
             </s-grid>
 
             {/* Grid with each row being a video */}
-            {rows.map((row, index) => (
+            {videos.map((row, index) => (
             
                 <s-grid gridTemplateColumns="repeat(12, 1fr)" gap="base" rowGap="large-400" >
         
@@ -163,7 +182,7 @@ function Extension() {
                       labelAccessibilityVisibility='exclusive'
                       onInput={(event) => {
                         const target = /** @type {{ value?: string | null }} */ (event.target);
-                        handleInputChange(index, "videoUrl", target?.value ?? '');
+                        onVideoRowChange(index, "videoUrl", target?.value ?? '');
                       }}
                     />
                   </s-box>
@@ -180,7 +199,7 @@ function Extension() {
                       labelAccessibilityVisibility='exclusive'
                       onInput={(event) => {
                         const target = /** @type {{ value?: string | null }} */ (event.target);
-                        handleInputChange(index, "showAfterDays", Number(target?.value ?? 0));
+                        onVideoRowChange(index, "showAfterDays", Number(target?.value ?? 0));
                       }}
                     />
                   </s-box>
@@ -189,7 +208,13 @@ function Extension() {
                 {/* Delete button */}
                 <s-grid-item gridColumn="span 1">
                   <s-box padding="small none none">
-                    <s-button id={`delete-${index}`} type="button" variant="secondary" icon="delete" onClick={() => deleteRow(index)}></s-button>
+                    <s-button 
+                        id={`delete-${index}`} 
+                        type="button" 
+                        variant="secondary" 
+                        icon="delete" 
+                        accessibilityLabel="Delete this video"
+                        onClick={() => deleteRow(index)}></s-button>
                   </s-box>
                 </s-grid-item>
 
