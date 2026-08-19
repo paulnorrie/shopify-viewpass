@@ -1,20 +1,15 @@
-# Shopify App Template - Extension Only
+# Shopify Viewpass UI 
 
-This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using [Preact](https://preactjs.com/) and [Vite](https://vite.dev/). It uses Shopify's [Direct API access](https://shopify.dev/docs/api/app-home#direct-api-access) and [App Bridge](https://shopify.dev/docs/api/app-bridge) to make authenticated calls to the Shopify Admin API directly from the browser — no server required.
-
-Rather than cloning this repo, follow the [Quick Start steps](#quick-start) below.
+This is an Extension-Only Shopify App using [Preact](https://preactjs.com/) and 
+[Vite](https://vite.dev/). It uses Shopify's [Direct API access](https://shopify.dev/docs/api/app-home#direct-api-access) 
+and [App Bridge](https://shopify.dev/docs/api/app-bridge) to make authenticated calls to the 
+Shopify Admin API directly from the browser — no server required.
 
 ## Quick start
 
 ### Prerequisites
 
-Before you begin, you'll need to [download and install the Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started) if you haven't already.
-
-### Setup
-
-```shell
-shopify app init --template=https://github.com/Shopify/shopify-app-template-extension-only
-```
+[Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started).
 
 ### Local Development
 
@@ -66,22 +61,8 @@ npm run codegen:watch
 
 Build the app by running:
 
-Using npm:
-
 ```shell
 npm run build
-```
-
-Using yarn:
-
-```shell
-yarn build
-```
-
-Using pnpm:
-
-```shell
-pnpm run build
 ```
 
 ## Shopify Dev MCP

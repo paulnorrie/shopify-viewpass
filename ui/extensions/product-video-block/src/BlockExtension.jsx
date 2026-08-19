@@ -1,87 +1,129 @@
 import {render} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
+//import { render, useApi, useData, useTarget } from '@shopify/ui-extensions-react/admin';
 
 export default async () => {
   render(<Extension />, document.body);
 }
 
+/** @typedef {{ videoUrl: string, showAfterDays: number }} VideoRow */
+
 function Extension() {
-  const {i18n, data, extension: {target}} = shopify;
+  const {data, extension: {target}} = shopify;
   console.log("Product Details Extension mounting");
   const productId = data.selected[0].id;
 
   // initially there are no videos
-  const [rows, setRows] = useState([
-    { videoUrl: 'a', showAfterDays: 0 },
-    { videoUrl: 'b', showAfterDays: 1 }
-  ]);
+  const [rows, setRows] = useState(/** @type {VideoRow[]} */ ([]));
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
   
-  // 
-  // Fetch initial rows from backend when component mounts 
-  //
+  /**
+   * Fetch initial rows from backend when component mounts if this isn't a new product
+   */ 
   useEffect(() => {
     async function loadInitialData() {
-      try {
-        
+      try {    
         // Call your backend API endpoint passing the product ID
-        console.log(`Product Details Extension: /api/productvideos/${encodeURIComponent(productId)}`);
-        const response = await fetch(`/api/productvideos/${encodeURIComponent(productId)}`);
-
+        const response = await fetch(`/products/${encodeURIComponent(productId)}`);
         if (response.ok) {
-          const payload = await response.json();
-          // Expecting an array payload like: [{ videoUrl: '...', showAfterDays: 0 }]
-          setRows(payload.videos || []); 
+            if (response.status != 204 && response.status != 404 && 
+                response.headers.get('content-length') != '0') {
+                console.log(`Response ${response.status} ${response.headers.get('content-length')}`);
+                const payload = await response.json();  
+                console.log(`Payload of Product Extension is ${payload}`);
+                setRows(payload?.videos || []); 
+            }
         }
       } catch (error) {
-        console.error("Failed to fetch initial video data:", error);
-      } finally {
-        setIsLoading(false); // Clear the loading state
+        console.error("Failed to fetch video data for product:", error);
       }
     }
 
     loadInitialData();
-  }, []); //
+
+  }, []); 
 
 
-  //
-  // add a row
-  //
+  /**
+   * Add a new blank row
+   */
+  const markDirty = () => setIsDirty(true);
+
+  const createVideoRow = () => ({ videoUrl: '', showAfterDays: 0 });
+
   const addRow = () => {
-    setRows([...rows, { videoUrl: 'c', showAfterDays: 2 }]);
+    setRows(currentRows => [...currentRows, createVideoRow()]);
+    markDirty();
   };
 
 
-  // 
-  // Save is triggered when user clicks the Save button for the product
-  //
-  const handleSave = async (event) => {
+  /**
+   * Delete a specified row.
+   * @param {number} indexToDelete 
+   */
+  const deleteRow = async (indexToDelete) => {
+    setRows(currentRows => currentRows.filter((_, index) => index !== indexToDelete));
+    markDirty();
+  };
+
+
+  /**
+   * Record updated video info
+   * 
+   * @param {number} index row of the video
+   * @param {string} field field to change (e.g. "videoUrl")
+   * @param {*} value of the field now
+   */
+  const handleInputChange = (index, field, value) => {
+        const updated = /** @type {VideoRow[]} */ ([...rows]);
+        const nextRow = {...updated[index], [field]: value};
+        updated[index] = nextRow;
+        setRows(updated);
+        setIsDirty(true);
+  }
+
+
+  /**
+   * Save the records
+   * @param {*} event 
+   */ 
+  const onSubmit = async (event) => {
+    
+    console.log("Saving!!! ", rows, " = ", JSON.stringify(rows), " = ", JSON.stringify({videos: rows}));
+    setIsSaving(true);
     event.preventDefault(); // stop browser doing default actions
 
     try {
-        
-        
+             
         // Post to backend
-        const response = await fetch(`/api/productvideos/${encodeURIComponent(productId)}`, {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                videos: rows
+        //const response = event.waitUntil(
+        const response = await
+            fetch(`/products/${encodeURIComponent(productId)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    videos: rows
+                })
             })
-        });
+        //);
 
         if (!response.ok) {
-            throw new Error('Backend failed to process video metadata sync');
+            throw new Error('Failed to save videos');
         }
 
         // Tell shopify success are all good to hide the save bar
-        event.target.reset();
+        event.currentTarget.reset();
+        setIsDirty(false);
+
 
     }catch (error) {
-        console.error("API Save Failure: ", error);
+        console.error("Failed to save data:", error);
+    }finally {
+        setIsSaving(false);
     }
   };
 
@@ -90,8 +132,7 @@ function Extension() {
 
   return (
     <s-admin-block heading="Videos" id="videos-block">
-        <form data-save-bar onSubmit={handleSave}>
-
+        <s-form id={`videos-form`} data-save-bar onSubmit={onSubmit}>
         {/* Header Grid Line: Video URL, Delay */}
         <s-stack direction="block">
         
@@ -117,27 +158,38 @@ function Extension() {
                   <s-box padding="small none none">
                     <s-text-field
                       value={row.videoUrl}
+                      name={`videoUrl-${index}`}
+                      label="Video URL"
+                      labelAccessibilityVisibility='exclusive'
                       onInput={(event) => {
-                        const updated = [...rows];
-                        updated[index].videoUrl = event.target.value;
-                        setRows(updated);
+                        const target = /** @type {{ value?: string | null }} */ (event.target);
+                        handleInputChange(index, "videoUrl", target?.value ?? '');
                       }}
                     />
                   </s-box>
                 </s-grid-item>
 
                 {/* Delay (days) */}
-                <s-grid-item gridColumn="span 3">
+                <s-grid-item gridColumn="span 2">
                   <s-box padding="small none none">
                     <s-number-field
-                      value={row.showAfterDays}
-                      min="0"
+                      value={String(row.showAfterDays)}
+                      name={`showAfterDays-${index}`}
+                      min={0}
+                      label="Show after this many days"
+                      labelAccessibilityVisibility='exclusive'
                       onInput={(event) => {
-                        const updated = [...rows];
-                        updated[index].showAfterDays = Number(event.target.value);
-                        setRows(updated);
+                        const target = /** @type {{ value?: string | null }} */ (event.target);
+                        handleInputChange(index, "showAfterDays", Number(target?.value ?? 0));
                       }}
                     />
+                  </s-box>
+                </s-grid-item>
+
+                {/* Delete button */}
+                <s-grid-item gridColumn="span 1">
+                  <s-box padding="small none none">
+                    <s-button id={`delete-${index}`} type="button" variant="secondary" icon="delete" onClick={() => deleteRow(index)}></s-button>
                   </s-box>
                 </s-grid-item>
 
@@ -147,53 +199,13 @@ function Extension() {
         </s-stack>
 
 
-        <s-stack direction="inline" align="start">
+        <s-stack direction="inline" >
             <s-box padding="large none large">
-                <s-button id="add-video-btn" variant="plain" icon="plus" onClick={addRow}>Add another video</s-button>
+                <s-button id="add-video-btn" variant="primary" type="button" icon="plus" onClick={addRow}>Add another video</s-button>
             </s-box>
         </s-stack>
    
-    </form>
+        </s-form>
     </s-admin-block>
   );
 }
-/*
-        {rows.map((row, index) => (
-        <s-box key={index}>
-        <s-grid gridTemplateColumns="repeat(12, 1fr)" gap="base">
-            
-            <s-grid-item gridColumn="span 9" gridRow="span 1">
-                <s-section>
-                    <s-text-field 
-                        label="Video URL" 
-                        details="The URL of the Vimeo video" 
-                        value={row.videoUrl}
-                        onInput={(event) => {
-                            const updated = [...rows];
-                            updated[index].videoUrl = event.target.value;
-                            setRows(updated);
-                            }}
-                    />
-                </s-section>
-            </s-grid-item>
-  
-            <s-grid-item gridColumn="span 3" gridRow="span 1">
-                <s-section>
-                    <s-number-field label="Show after days" 
-                        defaultValue="0" 
-                        value={row.showAfterDays}
-                        inputMode="numeric" 
-                        min="0" 
-                        onInput={(event) => {
-                            const updated = [...rows];
-                            updated[index].showAfterDays = Number(event.target.value);
-                            setRows(updated);
-                        }}
-                    />
-                </s-section>
-            </s-grid-item>
-        </s-grid>
-        </s-box>
-        ))}
-
-*/
