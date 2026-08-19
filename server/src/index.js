@@ -1,15 +1,14 @@
 /**
  * @file AWS Lambda entry point for calls routed via AWS API Gateway.
  * @description The API Gateway has pre-defined routes it accepts and all such routes lead here.
+ * The `route` function is where the most interesting action happens.
  */
 
 import {authenticate} from "./shopify_auth.js";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import {getProduct, postProduct} from "./products.js"
+import { issueLicence } from "./licences.js";
 
-/**
- * Run in the Initialisation Phase (called once only during Cold Start) to cache secrets.
- */
 
 // initialize Secure Secrets Manager client during the initialization phase
 const ssmClient = new SSMClient();
@@ -164,17 +163,31 @@ const route = async (routeKey, params, body) => {
                 }
                 break;
             }
+
             case "POST /products/{productId+}": {
                 //const videos = JSON.parse(body)?.videos || [];
                 const product = JSON.parse(body);
-                const ok = await postProduct(params.productId, product);
+                const ok = await postProduct(String(params.productId), product);
                 return {statusCode:200, body:""};
                 break;
             }
+
             case "POST /webhooks/orders/paid": {
+                console.log(`Orders/paid webhook with body ${body}`);
+                const payload = JSON.parse(body);
+                const customerId = String(payload?.customer?.id);
+                for (const lineItem of payload?.line_items) {
+                    console.log(`Issue Licence for customer id ${customerId}, product ${lineItem.product_id}`);
+                    await issueLicence(customerId, String(lineItem.product_id));
+                }
+                
                 return {statusCode:200, body:""};
                 break;
             }
+
+            case "POST /webhooks/orders/refund": {
+            }
+
             default:
                 return {statusCode:404, body:"Not Found"};
         }

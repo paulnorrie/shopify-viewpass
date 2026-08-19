@@ -1,5 +1,5 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { docClient } from "./db.js";
 
 /**
  * @typedef {Object} Video
@@ -14,9 +14,6 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dyn
  * @property {Video[]} videos - The videos in the product
  */
 
-// initialise and cache immediately when imported
-const baseClient = new DynamoDBClient({}); // use the same region this is running in
-const docClient = DynamoDBDocumentClient.from(baseClient);
 
 const TABLE_NAME = "products";
 const DEFAULT_LICENCE_DAYS = 3;
@@ -35,6 +32,8 @@ export const getProduct = async (productId) => {
         return null;
     }
 
+    productId = sanitiseProductId(productId);
+
     const params = {
       TableName: TABLE_NAME,
       Key: {
@@ -48,6 +47,7 @@ export const getProduct = async (productId) => {
 
       if (response.Item) {
         console.log("Record found:", response.Item);
+        response.Item.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
         return response.Item; 
       } else {
         console.log("No matching record found.");
@@ -80,6 +80,8 @@ export const postProduct = async (productId, product) => {
     throw new Error(errStr);
   }
   product.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
+
+  productId = sanitiseProductId(productId);
 
   try {
     const params = {
@@ -121,4 +123,19 @@ function isValidVideo(obj) {
 
 function isValidVideoArray(arr) {
     return Array.isArray(arr) && arr.every(isValidVideo);
+}
+
+
+/**
+ * Shopify APIs can send a GraphQL id (gid://.shopify/Product/1234567890) or just the id
+ * 1234567890 and the id can be too large for a safe number so always use the id only but as
+ * a string
+ * 
+ * @param {*} productId 
+ */
+const sanitiseProductId = (productId) => {
+    return stripLeading(String(productId), "gid:/shopify/Product/");   
+}
+const stripLeading = (str, prefix) => {
+    return str.startsWith(prefix) ? str.slice(prefix.length) : str;
 }

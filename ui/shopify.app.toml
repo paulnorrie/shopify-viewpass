@@ -8,15 +8,16 @@ application_url = "https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/" # AP
 embedded = true
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
 
 [webhooks]
 api_version = "2026-10"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/paid"       # do we need this here or just backend?
   topics = ["orders/paid"]            # requires read_orders access scope
+  uri = "/webhooks/orders/paid"       # NB: Bogus Payment Gateway in Dev Site won't trigger this
+                                      # so for testing use Admin > Orders > Create Order > Mark as Paid
+  
 
 
 [access.admin]

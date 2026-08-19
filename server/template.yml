@@ -44,6 +44,7 @@ Resources:
                   - dynamodb:Scan
                 Resource:
                   - !GetAtt ProductsTable.Arn
+                  - !GetAtt LicencesTable.Arn
                   - !GetAtt ShopifySessionsTable.Arn
                   - !Sub
                     - '${TableArn}/index/*'
@@ -73,6 +74,26 @@ Resources:
       KeySchema:
         - AttributeName: productId
           KeyType: HASH
+
+
+  # ---------------------------------------------------------------------------
+  # Resource: DynamoDB Table for Licences
+  # ---------------------------------------------------------------------------
+  LicencesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: licences
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+        - AttributeName: productId
+          KeyType: RANGE
 
   # ---------------------------------------------------------------------------
   # Resource: DynamoDB Table for Shopify Sessions

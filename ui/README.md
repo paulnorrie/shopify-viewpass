@@ -5,6 +5,10 @@ This is an Extension-Only Shopify App using [Preact](https://preactjs.com/) and
 and [App Bridge](https://shopify.dev/docs/api/app-bridge) to make authenticated calls to the 
 Shopify Admin API directly from the browser — no server required.
 
+
+NB: for the Bogus Payment gateway/test mode in Shopify payments, the orders/paid webhook won’t trigger
+You can just go into Shopify Admin and create an order and click mark as paid and that will trigger your webhook for you.
+
 ## Quick start
 
 ### Prerequisites
@@ -20,6 +24,10 @@ shopify app dev
 Press P to open the URL to your app. Once you click install, you can start development.
 
 Local development is powered by [Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps/test-apps-locally). It logs into your account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
+
+### Deployment
+npm run deploy
+
 
 ## How it works
 
