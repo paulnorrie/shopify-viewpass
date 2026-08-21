@@ -222,6 +222,16 @@ Resources:
         - - 'integrations'
           - !Ref HttpApiIntegration
 
+  GetMyVideosRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /myvideos/{customerId}'
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref HttpApiIntegration
+
   LambdaPermissionForHttpApi:
     Type: AWS::Lambda::Permission
     Properties:

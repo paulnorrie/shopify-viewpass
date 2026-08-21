@@ -6,18 +6,30 @@
     "extensions/*"
   ],
   "scripts": {
+    "generate:backend-url": "node scripts/generate-backend-url.mjs",
+    "generate:backend-url:staging": "node scripts/generate-backend-url.mjs --config staging",
+
     "shopify": "shopify",
-    "build": "shopify app build",
-    "dev": "shopify app dev",
+    "build": "npm run generate:backend-url && shopify app build",
+
+    "dev": "npm run generate:backend-url && shopify app dev",
+    "shopify:dev": "npm run generate:backend-url && shopify app dev",
+    "shopify:dev:staging": "npm run generate:backend-url:staging && shopify app dev --config staging",
+
     "info": "shopify app info",
     "generate": "shopify app generate",
-    "deploy": "shopify app deploy"
+    
+    "deploy": "npm run generate:backend-url && shopify app deploy",
+    "shopify:deploy": "npm run generate:backend-url && shopify app deploy",
+    "shopify:deploy:staging": "npm run generate:backend-url:staging && shopify app deploy --config staging"
   },
-  "dependencies": {},
   "trustedDependencies": [
     "@shopify/plugin-cloudflare"
   ],
   "author": "nozza",
   "private": true,
-  "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c"
+  "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c",
+  "devDependencies": {
+    "@iarna/toml": "^2.2.5"
+  }
 }

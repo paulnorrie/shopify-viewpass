@@ -188,6 +188,12 @@ const route = async (routeKey, params, body) => {
             case "POST /webhooks/orders/refund": {
             }
 
+            case "GET /myvideos/{customerId}": {
+                console.log(`MyVideos for ${params.customerId}`);
+                return {statusCode:200, body:""};
+            }
+
+
             default:
                 return {statusCode:404, body:"Not Found"};
         }

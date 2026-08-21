@@ -18,16 +18,24 @@ You can just go into Shopify Admin and create an order and click mark as paid an
 ### Local Development
 
 ```shell
-shopify app dev
+npm run dev 
 ```
+NB: avoid `shopify app dev` because it does not generate `/extensions/customer-account-ui-extension/generated-config.ts`
+and calls to `fetch()` will fail in this extension.
 
 Press P to open the URL to your app. Once you click install, you can start development.
 
 Local development is powered by [Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps/test-apps-locally). It logs into your account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
 
 ### Deployment
+```shell
 npm run deploy
+```
+For the same reasons as above, avoid `shopify app deploy`.
 
+## Showing the extensions in the shop
+1. In any Product details page, scroll to the bottom and add the Product Videos block.
+2. In Settings > Checkout... add the My-Videos page with a menu to Profile.
 
 ## How it works
 
