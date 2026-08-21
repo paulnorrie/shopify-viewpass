@@ -23,6 +23,7 @@ lerna-debug.log*
 dist
 shared/types/graphql
 *.local
+generated-config.ts
 
 # Editor directories and files
 .vscode/*
