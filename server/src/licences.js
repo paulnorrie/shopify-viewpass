@@ -4,7 +4,7 @@
 
 import { docClient } from "./db.js";
 import { getProduct } from "./products.js";
-import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 const TABLE_NAME = "licences";
 
@@ -67,7 +67,46 @@ export const issueLicence = async (customerId, productId) => {
 
 
 // TODO: if customer forgets account, and creates a new one they may want a manual licence created?
-//export const getLicencedProducts = (customerId) => {
+/**
+ * Get all licences for a given customer.
+ * @param {string} customerId 
+ * @returns {Licence[]} null if no such customer or an array of Licences
+ * @throws Error on error reading records
+ */
+export const getLicences = async (customerId) => {
+    if (! customerId) {
+        return null;
+    }
+
+    try {
+        const items = [];
+        let ExclusiveStartKey;
+
+        do {
+            // QueryCommand may paginate results so call multiple times
+            const command = new QueryCommand({
+                TableName: TABLE_NAME,
+                KeyConditionExpression: "customerId = :customerId",
+                ExpressionAttributeValues: {
+                    ":customerId": customerId,
+                },
+                ExclusiveStartKey,
+            });
+
+            const result = await docClient.send(command);
+
+            items.push(...(result.Items ?? []));
+
+            ExclusiveStartKey = result.LastEvaluatedKey;
+        } while (ExclusiveStartKey);
+
+        return items;
+
+    } catch (error) {
+        console.error(`Error reading licences for customerId=${customerId}:`, error);
+        throw error;
+    }
+
     // Product Licence
     // customerId:
     // productId: 
@@ -77,7 +116,7 @@ export const issueLicence = async (customerId, productId) => {
     //   videos[]:
     //     videoUrl:
     //     showFrom: (in order)
-//}
+}
 
 
 /**

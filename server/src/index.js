@@ -7,7 +7,7 @@
 import {authenticate} from "./shopify_auth.js";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import {getProduct, postProduct} from "./products.js"
-import { issueLicence } from "./licences.js";
+import { issueLicence, getLicences } from "./licences.js";
 
 
 // initialize Secure Secrets Manager client during the initialization phase
@@ -146,9 +146,9 @@ const addAccessControlHeadersTo = (obj) => {
  * 
  * @param {string} routeKey from the API Gateway
  * @param {object} params from any API Gateway {variable} in the route
- * @param {string} body of the request
+ * @param {string} body of the request as object, string, nu
  * 
- * @returns 
+ * @returns {object} containing statusCode and body (doesn't need to be string)
  */
 const route = async (routeKey, params, body) => {
     console.log(`Routing ${routeKey} with ${JSON.stringify(params)}\n${body}`);
@@ -190,7 +190,8 @@ const route = async (routeKey, params, body) => {
 
             case "GET /myvideos/{customerId}": {
                 console.log(`MyVideos for ${params.customerId}`);
-                return {statusCode:200, body:""};
+                const licences = await getLicences(params.customerId);
+                return {statusCode:200, body:licences};
             }
 
 

@@ -31,7 +31,7 @@ export const getProduct = async (productId) => {
     if (!productId) {
         return null;
     }
-
+    
     productId = sanitiseProductId(productId);
 
     const params = {
