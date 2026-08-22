@@ -11,6 +11,7 @@ function Extension() {
     
     const [licences, setLicences] = useState(/** @type {{ productId: string, customerId: string, licenceExpires?: string | number | null, videos: Array<{ videoUrl: string, showFrom: string }> }[]} */ ([]));
     const [productNames, setProductNames] = useState(/** @type {{ [key: string]: string }} */ ({}));
+    const [vimeoMeta, setVimeoMeta] = useState(/** @type {{ [key: string]: { title: string, thumbnailUrl: string } }} */ ({}));
 
     console.log("My Videos page mounting");
     shopify.query(`query {
@@ -87,6 +88,34 @@ function Extension() {
                 headers,
             });
     }
+
+    async function fetchVimeoMeta(/** @type {string} */ videoUrl) {
+      if (!videoUrl || !/^https?:\/\/.*/i.test(videoUrl)) {
+        return null;
+      }
+
+      try {
+        const response = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(videoUrl)}`);
+        if (!response.ok) {
+          return null;
+        }
+
+        /** @type {{ title?: string, thumbnail_url?: string } | null} */
+        const payload = await response.json();
+
+        if (!payload) {
+          return null;
+        }
+
+        return {
+          title: payload.title || 'Vimeo video',
+          thumbnailUrl: payload.thumbnail_url || '',
+        };
+      } catch (error) {
+        console.warn('Unable to resolve Vimeo metadata for video URL:', videoUrl, error);
+        return null;
+      }
+    }
     
     
     /**
@@ -119,6 +148,44 @@ function Extension() {
     loadInitialData();
 
   }, [customerId]); 
+
+  useEffect(() => {
+    if (!Array.isArray(licences)) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadVideoMetadata = async () => {
+      for (const [licenceIndex, licence] of licences.entries()) {
+        const licenceKey = licence.productId || `${licence.customerId || 'customer'}-${licenceIndex}`;
+        const videos = Array.isArray(licence.videos) ? licence.videos : [];
+
+        for (const [videoIndex, video] of videos.entries()) {
+          const key = `${licenceKey}-${videoIndex}`;
+          if (!video?.videoUrl || vimeoMeta[key]) {
+            continue;
+          }
+
+          const meta = await fetchVimeoMeta(video.videoUrl);
+          if (!isActive || !meta) {
+            continue;
+          }
+
+          setVimeoMeta((prev) => ({
+            ...prev,
+            [key]: meta,
+          }));
+        }
+      }
+    };
+
+    loadVideoMetadata();
+
+    return () => {
+      isActive = false;
+    };
+  }, [licences, vimeoMeta]);
   // a licence is a customer-product combo
   const licencesToRender = Array.isArray(licences) ? licences : [];
 
@@ -141,29 +208,51 @@ function Extension() {
               <s-stack direction="block" gap="base">
                 <s-text>Expires: {expiryText}</s-text>
                 {allVideos.length ? (
-                  allVideos.map((video, index) => {
-                    const showFrom = video?.showFrom ? new Date(video.showFrom) : null;
-                    const isLocked = !!showFrom && !Number.isNaN(showFrom.getTime()) && showFrom > new Date();
+                  <s-grid gridTemplateColumns="repeat(auto-fit, minmax(244px, 1fr))" gap="base">
+                    {allVideos.map((video, index) => {
+                      const showFrom = video?.showFrom ? new Date(video.showFrom) : null;
+                      const isLocked = !!showFrom && !Number.isNaN(showFrom.getTime()) && showFrom > new Date();
 
-                    return (
-                      <s-box key={`${licenceKey}-${index}`} border="base" padding="base">
-                        <s-stack direction="block" gap="small-100">
-                          <s-text>Video {index + 1}</s-text>
-                          {isLocked ? (
-                            <s-badge tone="critical">Locked</s-badge>
-                          ) : (
-                            <s-badge tone="neutral">Available</s-badge>
-                          )}
-                          <s-text>URL: {video.videoUrl}</s-text>
-                          {isLocked ? (
-                            <s-text>Locked until: {showFrom.toLocaleString()}</s-text>
-                          ) : (
-                            <s-text>Available from: {showFrom ? showFrom.toLocaleString() : 'Immediately'}</s-text>
-                          )}
-                        </s-stack>
-                      </s-box>
-                    );
-                  })
+                      const videoKey = `${licenceKey}-${index}`;
+                      const meta = vimeoMeta[videoKey];
+
+                      return (
+                        <s-grid-item key={videoKey}>
+                          <s-box border="base" padding="base" borderRadius="base">
+                            <s-stack direction="block" gap="small-100">
+                              {meta?.thumbnailUrl ? (
+                                <s-box inlineSize="244px">
+                                  <s-image
+                                    aspectRatio="16/9"
+                                    inlineSize="fill"
+                                    objectFit="contain"
+                                    borderRadius="base"
+                                    {.../** @type {any} */ ({
+                                      src: meta.thumbnailUrl,
+                                      alt: meta.title || `Video ${index + 1}`,
+                                      width: '244',
+                                      height: '137',
+                                    })}
+                                  />
+                                </s-box>
+                              ) : null}
+                              <s-text>{meta?.title || `Video ${index + 1}`}</s-text>
+                              {isLocked ? (
+                                <s-badge tone="critical">Locked</s-badge>
+                              ) : (
+                                <s-badge tone="neutral">Available</s-badge>
+                              )}
+                              {isLocked ? (
+                                <s-text>Locked until: {showFrom.toLocaleString()}</s-text>
+                              ) : (
+                                <s-text>Available from: {showFrom ? showFrom.toLocaleString() : 'Immediately'}</s-text>
+                              )}
+                            </s-stack>
+                          </s-box>
+                        </s-grid-item>
+                      );
+                    })}
+                  </s-grid>
                 ) : (
                   <s-text>No videos for this product.</s-text>
                 )}
