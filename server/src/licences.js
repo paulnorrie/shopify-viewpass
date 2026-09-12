@@ -5,6 +5,7 @@
 import { docClient } from "./db.js";
 import { getProduct } from "./products.js";
 import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { logger } from './logger.js';
 
 const TABLE_NAME = "licences";
 
@@ -51,15 +52,38 @@ export const issueLicence = async (customerId, productId) => {
         const command = new PutCommand(params);
         const response = await docClient.send(command);
         
-        console.log("Success! Record written to table.");
+        logger.debug(`Licence saved for customerId '${customerId}' to licence productId '${productId}'`);
         return licence;
     } catch (error) {
-        console.error("Error saving licence:", error);
+        logger.error(`Error saving licence: ${error}`);
         throw error;
     }
 }
 
 
+/***
+ * Check if a customer has a licence issued for a video that hasn't expired
+ */
+export const isLicenced = async (customerId, videoUrl) => {
+    let result = false;
+
+    const licences = await getLicences(customerId);
+    logger.info(`Licences for customerId=${customerId}:\n${JSON.stringify(licences)}`);
+    
+    for (const licence of licences) {
+        if (! isLicenceExpired(licence)) {
+            logger.info(`Licence not expired`);
+            const matchingVideo = videos?.find(video => video.videoUrl && video.videoUrl === videoUrl);
+            logger.info(`videoUrl '${videoUrl} found is '${JSON.stringify(matchingVideo)}'`);
+            if (canShowVideoNow(matchingVideo)) {
+                result = true;
+                break;
+           }
+        }
+    }
+    
+    return result;
+}
 
 //export const revokeLicence = (customerId, productId) => {
 //
@@ -68,14 +92,14 @@ export const issueLicence = async (customerId, productId) => {
 
 // TODO: if customer forgets account, and creates a new one they may want a manual licence created?
 /**
- * Get all licences for a given customer.
+ * Get all licences, including expired ones, for a given customer.
  * @param {string} customerId 
- * @returns {Licence[]} null if no such customer or an array of Licences
+ * @returns {Licence[]} an array of Licences, which will be empty if no licences exist for the customer
  * @throws Error on error reading records
  */
 export const getLicences = async (customerId) => {
     if (! customerId) {
-        return null;
+        return [];
     }
 
     try {
@@ -103,7 +127,7 @@ export const getLicences = async (customerId) => {
         return items;
 
     } catch (error) {
-        console.error(`Error reading licences for customerId=${customerId}:`, error);
+        logger.error(`Error reading licences for customerId=${customerId}:`, error);
         throw error;
     }
 
@@ -166,6 +190,35 @@ function addDays(date, days) {
   return result;
 }
 
+
+
+/**
+ * Has a licence expired?
+ */
+const isLicenceExpired = async(licence) => {
+    let result = true;
+    if (licence) {
+        const now = new Date();
+        const dateExpires = new Date(licence.licenceExpires);
+        result = now > dateExpires;
+        logger.info(`isLicenceExpired: ${now} > ${dateExpires} = ${result}`);
+    }
+
+    return result;
+}
+
+
+const canShowVideoNow = async(video) => {
+    let result = false;
+    if (video) {
+        const now = new Date();
+        const dateToShow = new Date(video?.showFrom);
+        result = now >= dateToShow;
+        logger.info(`canShowVideoNow: ${now} >= ${dateToShow} = ${result}`);
+    }
+    
+    return result;
+}
 
 // MyPages
 // for customerId, get all licenced products

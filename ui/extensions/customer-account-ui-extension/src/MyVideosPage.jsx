@@ -21,7 +21,6 @@ function Extension() {
                 }
             }
         }`).then(({data}) => console.log(`Got ${JSON.stringify(data)}`));
-    console.log("Products got");
     
     const customerId = shopify.authenticatedAccount?.customer?.value?.id;
 
@@ -29,6 +28,14 @@ function Extension() {
       if (!productId) return "";
       return String(productId).replace(/^gid:\/\/shopify\/Product\//, "");
     };
+
+    function stripSpeechMarks(str) {
+        let cleaned = str;
+        if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+            cleaned = str.slice(1, -1);
+        }
+        return cleaned;
+    }
 
     async function fetchProductNames(/** @type {Array<string | number | null | undefined>} */ productIds) {
       const uniqueIds = [...new Set(productIds.filter(Boolean).map(normaliseProductId).filter(Boolean))];
@@ -72,7 +79,7 @@ function Extension() {
       }
     }
     
-    async function fetchBackend() {
+    async function fetchMyVideos() {
         if (!customerId) {
             return null;
         }
@@ -117,6 +124,58 @@ function Extension() {
       }
     }
     
+    async function handleVideoClicked (event, videoUrl) {
+        event.preventDefault();
+
+        // get a short-lived token to use in the URL (doesn't validate licence)
+        console.log(`Getting player token for customerId ${customerId}, videoUrl ${videoUrl}`);
+        let shortlivedtoken = await fetch(`${BACKEND_URL}player-token?customerId=${customerId}&videoUrl=${encodeURIComponent(videoUrl)}`, {
+          headers: {
+            Authorization: `Bearer ${await shopify.sessionToken.get()}`
+            }
+        }).then(r => r.text()); //TODO: handle bad status code
+        shortlivedtoken = stripSpeechMarks(shortlivedtoken);
+        console.log(`Token: ${shortlivedtoken}`);
+        // open new tab before calling fetch to avoid triggering pop-up blockers
+        const newTab = window.open(`${BACKEND_URL}player/${customerId}?videoUrl=${encodeURIComponent(videoUrl)}&token=${encodeURIComponent(shortlivedtoken)}`, '_blank');
+        if (! newTab) {
+            console.error("Player cannot load.  New Tab/Pop-up is blocked.");
+            return;
+        }
+
+        // const token = await shopify.sessionToken.get();
+
+        // const headers = {
+        //     Authorization: `Bearer ${token}`
+        // };
+        
+        // try {
+        //     const response = await fetch(`${BACKEND_URL}player/${customerId}?videoUrl=${encodeURIComponent(videoUrl)}`, 
+        //         {
+        //             headers,
+        //         });
+            
+        //     const htmlText = await response.text();
+        //     const blob = new Blob([htmlText], { type: 'text/html' });
+        //     const objectUrl = URL.createObjectURL(blob);
+
+            
+        //     console.log(`LOADING TAB ${objectUrl}`);
+        //     newTab.location.href = objectUrl;
+        //     newTab.addEventListener('load', () => URL.revokeObjectURL(objectUrl), { once: true });
+            
+        // } catch (error) {
+        //     console.error(`Failed to load video ${videoUrl}:`, error);
+        //     if (newTab) {
+        //         newTab.close();
+        //     }
+        // }
+
+
+            
+    }
+
+    
     
     /**
     * Fetch MyVideos when component mounts
@@ -127,7 +186,7 @@ function Extension() {
       try {    
         console.log(`app_Url is ${BACKEND_URL}`);
         
-         const response = await fetchBackend();
+         const response = await fetchMyVideos();
          
          if (response && response.ok) {
             console.log(`response okay`);
@@ -202,6 +261,7 @@ function Extension() {
           const allVideos = Array.isArray(licence.videos) ? licence.videos : [];
 
           const expiryText = licence.licenceExpires ? new Date(licence.licenceExpires).toLocaleString() : 'Not specified';
+          const isLicenceExpired = !!licence.licenceExpires && new Date(licence.licenceExpires) < new Date();
 
           return (
             <s-section heading={productTitle} key={licenceKey}>
@@ -212,6 +272,8 @@ function Extension() {
                     {allVideos.map((video, index) => {
                       const showFrom = video?.showFrom ? new Date(video.showFrom) : null;
                       const isLocked = !!showFrom && !Number.isNaN(showFrom.getTime()) && showFrom > new Date();
+                      const badgeText = isLicenceExpired ? 'Expired' : (isLocked ? 'Locked' : 'Available');
+                      const badgeTone = isLicenceExpired ? 'critical' : (isLocked ? 'critical' : 'neutral');
 
                       const videoKey = `${licenceKey}-${index}`;
                       const meta = vimeoMeta[videoKey];
@@ -222,6 +284,15 @@ function Extension() {
                             <s-stack direction="block" gap="small-100">
                               {meta?.thumbnailUrl ? (
                                 <s-box inlineSize="244px">
+                                  <s-tooltip id="play-tooltip">Click to play video in new tab</s-tooltip>
+                                  <s-clickable
+                                    //target="_blank"
+                                    // Need authentication so handler routine
+                                    onClick={(event) =>  handleVideoClicked(event, video.videoUrl)}
+                                    href="#"
+                                    //href={`${BACKEND_URL}player/${customerId}?videoUrl=${encodeURIComponent(video.videoUrl)}`}
+                                    interestFor="play-tooltip"
+                                  >
                                   <s-image
                                     aspectRatio="16/9"
                                     inlineSize="fill"
@@ -234,15 +305,14 @@ function Extension() {
                                       height: '137',
                                     })}
                                   />
+                                  </s-clickable> 
                                 </s-box>
                               ) : null}
                               <s-text>{meta?.title || `Video ${index + 1}`}</s-text>
-                              {isLocked ? (
-                                <s-badge tone="critical">Locked</s-badge>
-                              ) : (
-                                <s-badge tone="neutral">Available</s-badge>
-                              )}
-                              {isLocked ? (
+                              <s-badge tone={badgeTone}>{badgeText}</s-badge>
+                              {isLicenceExpired && licence.licenceExpires ? (
+                                <s-text>Licence expired on: {new Date(licence.licenceExpires).toLocaleString()}</s-text>
+                              ) : isLocked ? (
                                 <s-text>Locked until: {showFrom.toLocaleString()}</s-text>
                               ) : (
                                 <s-text>Available from: {showFrom ? showFrom.toLocaleString() : 'Immediately'}</s-text>

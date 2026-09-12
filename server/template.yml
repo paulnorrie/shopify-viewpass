@@ -143,6 +143,7 @@ Resources:
         Variables:
           # Pass database info directly; AWS SDK detects IAM credentials automatically
           SESSION_TABLE_NAME: 'shopify_sessions' 
+          LOG_LEVEL: info
       Code: ./src
     Metadata: # Adds esbuild bundling support
       BuildMethod: esbuild
@@ -227,6 +228,26 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: 'GET /myvideos/{customerId}'
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref HttpApiIntegration
+
+  PlayerTokenRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /player-token'
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref HttpApiIntegration
+
+  PlayerRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /player/{customerId}'
       Target: !Join
         - '/'
         - - 'integrations'

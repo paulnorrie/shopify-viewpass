@@ -1,16 +1,15 @@
 import crypto from "crypto";
 import jwt from 'jsonwebtoken';
+import { logger } from './logger.js';
 
 
 export const authenticate = (headers, body, clientId, clientSecret) => {
     // Webhooks use HMAC for authentication, while browser requests use authorization header
-    console.log(`Authenticating on ${JSON.stringify(headers)}\n${body}`);
+    logger.info(`Authenticating on ${JSON.stringify(headers)}\n${body} with ${clientId} and ${clientSecret}`);
     if (headers.authorization) {
-        console.log('Checking JWT');
         // Shopify request from browser with JWT Authorization
         return verifyShopifyToken(headers, clientId, clientSecret)
     } else {
-        console.log('Checking HMAC');
         return verifyShopifyHmac(headers, body, clientSecret);
         
     }
@@ -79,3 +78,5 @@ export function verifyShopifyToken(headers, clientId, clientSecret) {
 
   return true;
 }
+
+

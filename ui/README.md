@@ -37,6 +37,10 @@ For the same reasons as above, avoid `shopify app deploy`.
 1. In any Product details page, scroll to the bottom and add the Product Videos block.
 2. In Settings > Checkout... add the My-Videos page with a menu to Profile.
 
+## Notes
+Customers get the videos that are configured with the product when they order it. If those videos
+change, the customer won't see the new/removed/changed videos.
+
 ## How it works
 
 ### Authentication

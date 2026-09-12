@@ -31,7 +31,7 @@ export const getProduct = async (productId) => {
     if (!productId) {
         return null;
     }
-    
+
     productId = sanitiseProductId(productId);
 
     const params = {
@@ -50,7 +50,7 @@ export const getProduct = async (productId) => {
         response.Item.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
         return response.Item; 
       } else {
-        console.log("No matching record found.");
+        console.warn("No matching product found.");
         return null;
       }
     } catch (error) {
