@@ -8,6 +8,29 @@ export default async () => {
 
 /** @typedef {{ videoUrl: string, showAfterDays: number }} Video */
 
+const normaliseVideoUrlInput = (value) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) {
+    return '';
+  }
+
+  try {
+    new URL(raw);
+    return raw;
+  } catch {
+    // fall through to quoted src extraction
+  }
+
+  const match = raw.match(/src\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+  const candidate = match?.[1] || match?.[2] || match?.[3];
+
+  if (candidate) {
+    return candidate.trim();
+  }
+
+  return raw;
+};
+
 function Extension() {
   const {data, extension: {target}} = shopify;
   console.log("Product Details Extension mounting");
@@ -76,7 +99,10 @@ function Extension() {
    */
   const onVideoRowChange = (index, field, value) => {
         const updated = /** @type {Video[]} */ ([...videos]);
-        const nextRow = {...updated[index], [field]: value};
+        const nextRow = {
+          ...updated[index],
+          [field]: field === 'videoUrl' ? normaliseVideoUrlInput(value) : value,
+        };
         updated[index] = nextRow;
         setVideos(updated);
         setIsDirty(true);
@@ -98,7 +124,7 @@ function Extension() {
    */ 
   const onSubmit = async (event) => {
     
-    console.log("Saving!!! ", videos, " = ", JSON.stringify(videos), " = ", JSON.stringify({videos: videos}));
+    //console.log("Saving!!! ", videos, " = ", JSON.stringify(videos), " = ", JSON.stringify({videos: videos}));
     setIsSaving(true);
     event.preventDefault(); // stop browser doing default actions
 
@@ -157,7 +183,7 @@ function Extension() {
         
             <s-grid gridTemplateColumns="repeat(12, 1fr)" gap="base">
                 <s-grid-item gridColumn="span 9">
-                    <s-text>Video URL</s-text>
+                    <s-text>Vimeo embed URL</s-text>
                 </s-grid-item>
 
                 <s-grid-item gridColumn="span 3">

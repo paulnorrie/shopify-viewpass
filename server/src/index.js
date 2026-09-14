@@ -50,12 +50,14 @@ export const handler = async (event, context) => {
                     const routeKey = event.routeKey; 
                     const queryParams = event.queryStringParameters || {};
                     const result = await route(routeKey, params, event.headers, rawBody, queryParams);
-                    return addAccessControlHeadersTo({
-                        statusCode: result.statusCode,
-                        body: JSON.stringify(result.body),
-                    });
+                    // return addAccessControlHeadersTo({
+                    //     statusCode: result.statusCode,
+                    //     body: JSON.stringify(result.body),
+                    // });
+                    return addAccessControlHeadersTo(result);
                     break;
-                             default:
+
+                default:
                     return addAccessControlHeadersTo({
                         statusCode: 405,
                         body: JSON.stringify({ ok: false }),
@@ -169,7 +171,7 @@ const route = async (routeKey, params, headers, body, queryParams = {}) => {
                 
                 const product = await getProduct(params.productId);
                 if (product) {
-                    return 
+                    return {statusCode:200, body:JSON.stringify(product)};
                 } else {
                     return {statusCode:404, body:"Not Found"};
                 }
@@ -204,8 +206,13 @@ const route = async (routeKey, params, headers, body, queryParams = {}) => {
                 logger.info(`GET /myvideos/${params.customerId}\n\n${headers}\n\n${body}`)
                 if (! await authShopifyRequest(headers, body) ) return StdRespForbidden;
                 const licences = await getLicences(params.customerId);
-                return {statusCode:200, body:licences}; //TODO: always 200?
-            }
+                return {
+                    statusCode:200, 
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body:JSON.stringify(licences)}; //TODO: always 200?
+                }
 
             case "GET /player/{customerId}": {
                 logger.info(`GET /player/${params.customerId}?videoUrl=${queryParams?.videoUrl}&token=${queryParams?.token}`);
@@ -214,14 +221,9 @@ const route = async (routeKey, params, headers, body, queryParams = {}) => {
                 logger.info(`INDEX.JS QueryParams.token: ${decodeURIComponent(queryParams.token)}`);
                 const validToken = verifyPlayerToken(queryParams.token, params.customerId, queryParams.videoUrl, await getClientSecret());
                 if (validToken) {
-                    const player = await renderPlayer(params.customerId, requestedVideoUrl);
-                    return {
-                        statusCode: 200,
-                        headers: {
-                            'Content-Type': 'text/html; charset=utf-8',
-                        },
-                        body: player,
-                    };
+                    const player = await renderPlayer(params.customerId, queryParams.videoUrl);
+                    logger.info(`RENDER PLAYER:\n${JSON.stringify(player)}`);
+                    return player;
                 } else {
                     return {
                         statusCode: 403,

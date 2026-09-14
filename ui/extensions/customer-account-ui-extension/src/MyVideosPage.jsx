@@ -133,7 +133,7 @@ function Extension() {
           headers: {
             Authorization: `Bearer ${await shopify.sessionToken.get()}`
             }
-        }).then(r => r.text()); //TODO: handle bad status code
+        }).then(r => r.text()); //TODO: handle failed/error status code
         shortlivedtoken = stripSpeechMarks(shortlivedtoken);
         console.log(`Token: ${shortlivedtoken}`);
         // open new tab before calling fetch to avoid triggering pop-up blockers

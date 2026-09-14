@@ -43,7 +43,7 @@ export const createPlayerToken = (customerId, videoUrl, secret) => {
 export const verifyPlayerToken = (token, customerId, videoUrl, secret) => {
     try {
         logger.info(`VerifyPlayerToken: secret ${secret}`);
-        logger.info(`VerifyPlayerToken: secret ${token}`);
+        logger.info(`VerifyPlayerToken: token ${token}`);
         const payload = jwt.verify(token, secret);
         logger.info(`VerifyPlayerToken: ${payload.customerId} = ${customerId} && ${payload.videoUrl} == ${videoUrl}`);
         return (payload.customerId == customerId && payload.videoUrl == videoUrl);
@@ -86,7 +86,7 @@ const normaliseVideoUrl = (videoUrl) => {
  * Render the player page
  * @param {string} customerId to check if there is a licence for this video
  * @param {string} videoUrl what to play
- * @returns {statusCode, body}
+ * @returns {object} containing at least `statusCode` and `body`
  */
 export const renderPlayer = async (customerId, videoUrl) => {
   if (! customerId || !videoUrl) {
@@ -107,13 +107,21 @@ export const renderPlayer = async (customerId, videoUrl) => {
     return {status: 500, body:"Unable to play video"};
   }
 
+  
   const finalUrl = normaliseVideoUrl(videoUrl);
+  logger.info(`[Player.js] Normalised ${videoUrl} to ${finalUrl}`);
+  
   if (!finalUrl) {
     logger.error(`Cannot render Player: videoUrl '${videoUrl}' cannot be normalised`);
     return {status: 500, body: "Unable to play video"};
   }
 
-  return `<!doctype html>
+  return {
+    statusCode: 200, 
+    headers: {
+        'Content-Type': 'text/html'
+    },
+    body:`<!doctype html>
     <html lang="en">
       <head>
         <meta charset="utf-8" />
@@ -122,19 +130,27 @@ export const renderPlayer = async (customerId, videoUrl) => {
         <style>
           html, body {
             margin: 0;
-            height: 100%;
+            min-height: 100%;
             background: #000;
             font-family: Arial, sans-serif;
           }
 
           body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
+            background: #000;
+          }
+
+          .header {
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            background: #777777;
+            padding: 16px 24px;
+            box-sizing: border-box;
           }
 
           .player-shell {
             width: min(90vw, 960px);
+            margin: 24px auto 0;
             aspect-ratio: 16 / 9;
             background: #111;
             border-radius: 12px;
@@ -150,7 +166,9 @@ export const renderPlayer = async (customerId, videoUrl) => {
         </style>
       </head>
       <body>
-        <button onclick="history.back()">Go Back</button>
+        <div class="header">
+            <button onclick="history.back()">Go Back</button>
+        </div>
         <div class="player-shell">
           <iframe
             id="vimeo-player"
@@ -176,12 +194,15 @@ export const renderPlayer = async (customerId, videoUrl) => {
           }
         </script>
       </body>
-    </html>`;
-};
+    </html>`
+    };
+}
+
 
 const renderBadArgs = () => {
-    return 
-    `<html lang="en">
+    return {
+        statusCode: 401,
+        body:`<html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -191,5 +212,6 @@ const renderBadArgs = () => {
         <button onclick="history.back()">Go Back</button>
         Unable to play this video.
       </body>
-    </html>`;
-};
+    </html>`
+    };
+}
