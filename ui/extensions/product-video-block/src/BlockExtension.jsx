@@ -41,6 +41,14 @@ function Extension() {
   const [licenceDurationDays, setLicenceDurationDays] = useState(3);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 4;
+  const totalPages = Math.max(1, Math.ceil(videos.length / pageSize));
+  const visibleVideos = videos.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
+  }, [totalPages]);
 
   
   /**
@@ -75,7 +83,12 @@ function Extension() {
    * Add a new blank row
    */
   const addRow = () => {
-    setVideos(currentRows => [...currentRows, { videoUrl: '', showAfterDays: 0 }]);
+    setVideos(currentRows => {
+      const nextRows = [...currentRows, { videoUrl: '', showAfterDays: 0 }];
+      const nextPageCount = Math.ceil(nextRows.length / pageSize);
+      setCurrentPage(nextPageCount);
+      return nextRows;
+    });
     setIsDirty(true);
   };
 
@@ -85,7 +98,12 @@ function Extension() {
    * @param {number} indexToDelete 
    */
   const deleteRow = async (indexToDelete) => {
-    setVideos(currentRows => currentRows.filter((_, index) => index !== indexToDelete));
+    setVideos(currentRows => {
+      const nextRows = currentRows.filter((_, index) => index !== indexToDelete);
+      const nextPage = Math.min(currentPage, Math.max(1, Math.ceil(nextRows.length / pageSize)));
+      setCurrentPage(nextPage);
+      return nextRows;
+    });
     setIsDirty(true);
   };
 
@@ -200,64 +218,84 @@ function Extension() {
             </s-grid>
 
             {/* Grid with each row being a video */}
-            {videos.map((row, index) => (
-            
-                <s-grid gridTemplateColumns="repeat(12, 1fr)" gap="base" rowGap="large-400" >
-        
-                {/* Video URL */}
-                <s-grid-item gridColumn="span 9">
-                  <s-box padding="small none none">
-                    <s-text-field
-                      value={row.videoUrl}
-                      name={`videoUrl-${index}`}
-                      label="Video URL"
-                      labelAccessibilityVisibility='exclusive'
-                      onInput={(event) => {
-                        const target = /** @type {{ value?: string | null }} */ (event.target);
-                        onVideoRowChange(index, "videoUrl", target?.value ?? '');
-                      }}
-                    />
-                  </s-box>
-                </s-grid-item>
+            {visibleVideos.map((row, offsetIndex) => {
+                const index = (currentPage - 1) * pageSize + offsetIndex;
+                return (
+                  <s-grid key={`video-row-${index}`} gridTemplateColumns="repeat(12, 1fr)" gap="small" rowGap="large-400">
+                    {/* Video URL */}
+                    <s-grid-item gridColumn="span 9">
+                      <s-box padding="small-500 none none">
+                        <s-text-field
+                          value={row.videoUrl}
+                          name={`videoUrl-${index}`}
+                          label="Video URL"
+                          labelAccessibilityVisibility='exclusive'
+                          onInput={(event) => {
+                            const target = /** @type {{ value?: string | null }} */ (event.target);
+                            onVideoRowChange(index, "videoUrl", target?.value ?? '');
+                          }}
+                        />
+                      </s-box>
+                    </s-grid-item>
 
-                {/* Delay (days) */}
-                <s-grid-item gridColumn="span 2">
-                  <s-box padding="small none none">
-                    <s-number-field
-                      value={String(row.showAfterDays)}
-                      name={`showAfterDays-${index}`}
-                      min={0}
-                      label="Show after this many days"
-                      labelAccessibilityVisibility='exclusive'
-                      onInput={(event) => {
-                        const target = /** @type {{ value?: string | null }} */ (event.target);
-                        onVideoRowChange(index, "showAfterDays", Number(target?.value ?? 0));
-                      }}
-                    />
-                  </s-box>
-                </s-grid-item>
+                    {/* Delay (days) */}
+                    <s-grid-item gridColumn="span 2">
+                      <s-box padding="small-500 none none">
+                        <s-number-field
+                          value={String(row.showAfterDays)}
+                          name={`showAfterDays-${index}`}
+                          min={0}
+                          label="Show after this many days"
+                          labelAccessibilityVisibility='exclusive'
+                          onInput={(event) => {
+                            const target = /** @type {{ value?: string | null }} */ (event.target);
+                            onVideoRowChange(index, "showAfterDays", Number(target?.value ?? 0));
+                          }}
+                        />
+                      </s-box>
+                    </s-grid-item>
 
-                {/* Delete button */}
-                <s-grid-item gridColumn="span 1">
-                  <s-box padding="small none none">
-                    <s-button 
-                        id={`delete-${index}`} 
-                        type="button" 
-                        variant="secondary" 
-                        icon="delete" 
-                        accessibilityLabel="Delete this video"
-                        onClick={() => deleteRow(index)}></s-button>
-                  </s-box>
-                </s-grid-item>
-
-            </s-grid>
-    
-        ))}
+                    {/* Delete button */}
+                    <s-grid-item gridColumn="span 1">
+                      <s-box padding="small-500 none none">
+                        <s-button 
+                            id={`delete-${index}`} 
+                            type="button" 
+                            variant="secondary" 
+                            icon="delete" 
+                            accessibilityLabel="Delete this video"
+                            onClick={() => deleteRow(index)}></s-button>
+                      </s-box>
+                    </s-grid-item>
+                  </s-grid>
+                );
+            })}
         </s-stack>
 
+        {videos.length > pageSize && (
+          <s-stack direction="inline" gap="base" alignment="center">
+            <s-button
+              type="button"
+              variant="secondary"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </s-button>
+            <s-text>Page {currentPage} of {totalPages}</s-text>
+            <s-button
+              type="button"
+              variant="secondary"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              Next
+            </s-button>
+          </s-stack>
+        )}
 
         <s-stack direction="inline" >
-            <s-box padding="large none large">
+            <s-box padding="base none base">
                 <s-button id="add-video-btn" variant="primary" type="button" icon="plus" onClick={addRow}>Add another video</s-button>
             </s-box>
         </s-stack>
