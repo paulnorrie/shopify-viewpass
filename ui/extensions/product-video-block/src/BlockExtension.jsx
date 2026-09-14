@@ -33,7 +33,7 @@ const normaliseVideoUrlInput = (value) => {
 
 function Extension() {
   const {data, extension: {target}} = shopify;
-  console.log("Product Details Extension mounting");
+  //console.log("Product Details Extension mounting");
   const productId = data.selected[0].id;
 
   
@@ -49,7 +49,7 @@ function Extension() {
   useEffect(() => {
     async function loadInitialData() {
       try {    
-        // Call your backend API endpoint passing the product ID
+        // call backend API endpoint passing the product ID
         const response = await fetch(`/products/${encodeURIComponent(productId)}`);
         if (response.ok) {
             if (response.status != 204 && response.status != 404 && 
@@ -166,16 +166,22 @@ function Extension() {
     <s-admin-block heading="Videos" id="videos-block">
         <s-form id={`videos-form`} data-save-bar onSubmit={onSubmit}>
         
-        
-        <s-number-field 
-            name="licenceDays"
-            value={String(licenceDurationDays)}
-            min={1} 
-            label="Number of days the videos are available for"
-            onInput={(event) => {
-                        const target = /** @type {{ value?: string | null }} */ (event.target);
-                        onLicenceDaysChange(Number(target?.value ?? 0));
-                      }}/>
+        <s-grid gridTemplateColumns="auto auto" gap="base" style={{ alignItems: 'center' }}>
+            <s-grid-item>
+                <s-text>Videos are available for</s-text>
+            </s-grid-item>
+            <s-grid-item>
+                <s-number-field 
+                    name="licenceDays"
+                    value={String(licenceDurationDays)}
+                    min={1} 
+                    /*label="Number of days the videos are available for"*/
+                    onInput={(event) => {
+                            const target = /** @type {{ value?: string | null }} */ (event.target);
+                            onLicenceDaysChange(Number(target?.value ?? 0));
+                          }}/>
+            </s-grid-item>
+        </s-grid>
         
         
         {/* Header Grid Line: Video URL, Delay */}
