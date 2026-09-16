@@ -35,11 +35,17 @@ For the same reasons as above, avoid `shopify app deploy`.
 
 ## Showing the extensions in the shop
 1. In any Product details page, scroll to the bottom and add the Product Videos block.
-2. In Settings > Checkout... add the My-Videos page with a menu to Profile.
+2. In Settings > Checkout > Edit ... add the My-Videos page with a menu to Profile.
 
 ## Notes
 Customers get the videos that are configured with the product when they order it. If those videos
 change, the customer won't see the new/removed/changed videos.
+
+To test this with the Dummy Payment Gateway, you cannot make an order on the website, you must make the order in Shopify Admin, and Mark the Order as Paid.  Sometimes this stops working and you need to
+redeploy the app.
+
+## Uninstalling the App from a Store
+In the Shopify Store: Settings > Apps > Viewpass > Uninstall
 
 ## How it works
 

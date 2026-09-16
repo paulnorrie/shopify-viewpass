@@ -113,9 +113,10 @@ function Extension() {
         if (!payload) {
           return null;
         }
-
+        console.log(`Vimeo Metadata: ${JSON.stringify(payload)}`);
         return {
           title: payload.title || 'Vimeo video',
+          thumbnailUrlWithPlayButton: payload.thumbnail_url_with_play_button || '',
           thumbnailUrl: payload.thumbnail_url || '',
         };
       } catch (error) {
@@ -135,43 +136,14 @@ function Extension() {
             }
         }).then(r => r.text()); //TODO: handle failed/error status code
         shortlivedtoken = stripSpeechMarks(shortlivedtoken);
-        console.log(`Token: ${shortlivedtoken}`);
+        
+        
         // open new tab before calling fetch to avoid triggering pop-up blockers
         const newTab = window.open(`${BACKEND_URL}player/${customerId}?videoUrl=${encodeURIComponent(videoUrl)}&token=${encodeURIComponent(shortlivedtoken)}`, '_blank');
         if (! newTab) {
             console.error("Player cannot load.  New Tab/Pop-up is blocked.");
             return;
         }
-
-        // const token = await shopify.sessionToken.get();
-
-        // const headers = {
-        //     Authorization: `Bearer ${token}`
-        // };
-        
-        // try {
-        //     const response = await fetch(`${BACKEND_URL}player/${customerId}?videoUrl=${encodeURIComponent(videoUrl)}`, 
-        //         {
-        //             headers,
-        //         });
-            
-        //     const htmlText = await response.text();
-        //     const blob = new Blob([htmlText], { type: 'text/html' });
-        //     const objectUrl = URL.createObjectURL(blob);
-
-            
-        //     console.log(`LOADING TAB ${objectUrl}`);
-        //     newTab.location.href = objectUrl;
-        //     newTab.addEventListener('load', () => URL.revokeObjectURL(objectUrl), { once: true });
-            
-        // } catch (error) {
-        //     console.error(`Failed to load video ${videoUrl}:`, error);
-        //     if (newTab) {
-        //         newTab.close();
-        //     }
-        // }
-
-
             
     }
 
@@ -272,6 +244,7 @@ function Extension() {
                     {allVideos.map((video, index) => {
                       const showFrom = video?.showFrom ? new Date(video.showFrom) : null;
                       const isLocked = !!showFrom && !Number.isNaN(showFrom.getTime()) && showFrom > new Date();
+                      const canPlay = ! isLocked && ! isLicenceExpired;
                       const badgeText = isLicenceExpired ? 'Expired' : (isLocked ? 'Locked' : 'Available');
                       const badgeTone = isLicenceExpired ? 'critical' : (isLocked ? 'critical' : 'neutral');
 
@@ -284,7 +257,7 @@ function Extension() {
                             <s-stack direction="block" gap="small-100">
                               {meta?.thumbnailUrl ? (
                                 <s-box inlineSize="244px">
-                                  <s-tooltip id="play-tooltip">Click to play video in new tab</s-tooltip>
+                                  <s-tooltip id="play-tooltip">{canPlay ? 'Click to play video' : 'Cannot play this video yet. It is either locked or expired.'}</s-tooltip>
                                   <s-clickable
                                     //target="_blank"
                                     // Need authentication so handler routine
@@ -299,7 +272,7 @@ function Extension() {
                                     objectFit="contain"
                                     borderRadius="base"
                                     {.../** @type {any} */ ({
-                                      src: meta.thumbnailUrl,
+                                      src: (canPlay ? meta.thumbnailUrlWithPlayButton : meta.thumbnailUrl),
                                       alt: meta.title || `Video ${index + 1}`,
                                       width: '244',
                                       height: '137',
