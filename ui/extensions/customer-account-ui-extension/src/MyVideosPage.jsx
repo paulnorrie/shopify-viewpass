@@ -29,6 +29,11 @@ function Extension() {
       return String(productId).replace(/^gid:\/\/shopify\/Product\//, "");
     };
 
+    /**
+     * 
+     * @param {string} str 
+     * @returns 
+     */
     function stripSpeechMarks(str) {
         let cleaned = str;
         if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {

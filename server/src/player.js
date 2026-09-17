@@ -2,7 +2,7 @@
  * @file Render a Vimeo Player
  */
 import jwt from 'jsonwebtoken';
-import { getLicences, isLicenced } from "./licences.js";
+import { isLicenced } from "./licences.js";
 import { logger } from './logger.js';
 
 
@@ -39,18 +39,15 @@ export const createPlayerToken = (customerId, videoUrl, secret) => {
  * @param {string} customerId that should be in the token 
  * @param {string} videoUrl that should be in the token
  * @param {string} clientSecret used to generate the token
+ * 
+ * @throws {Error}
  */
 export const verifyPlayerToken = (token, customerId, videoUrl, secret) => {
-    try {
-        logger.info(`VerifyPlayerToken: secret ${secret}`);
-        logger.info(`VerifyPlayerToken: token ${token}`);
-        const payload = jwt.verify(token, secret);
-        logger.info(`VerifyPlayerToken: ${payload.customerId} = ${customerId} && ${payload.videoUrl} == ${videoUrl}`);
-        return (payload.customerId == customerId && payload.videoUrl == videoUrl);
-    } catch (error) {
-        logger.error(`Error Verifying Player Token: ${error}`);
-        return false;
-    }
+    logger.info(`VerifyPlayerToken: secret ${secret}`);
+    logger.info(`VerifyPlayerToken: token ${token}`);
+    const payload = jwt.verify(token, secret);
+    logger.info(`VerifyPlayerToken: ${payload.customerId} = ${customerId} && ${payload.videoUrl} == ${videoUrl}`);
+    return (payload.customerId == customerId && payload.videoUrl == videoUrl);
     
 }
 
@@ -75,7 +72,7 @@ const normaliseVideoUrl = (videoUrl) => {
     }
     return trimmed;
   } catch (err) {
-    logger.error(`Unable to normalise URL ${videoUrl} for player`);
+    logger.error(`Unable to normalise URL ${videoUrl} for player: ${err}`);
     return null;
   }
 };

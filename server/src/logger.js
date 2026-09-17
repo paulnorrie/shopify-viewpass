@@ -11,6 +11,7 @@ export const logStorage = new AsyncLocalStorage();
 
 const baseLogger = pino({
   // read from the LOG_LEVEL environment variable, default to 'info'
+  // eslint-disable-next-line no-undef
   level: process.env.LOG_LEVEL || 'info',
   
   // format numeric levels to strings (e.g., 'info' instead of 30)
@@ -20,7 +21,7 @@ const baseLogger = pino({
     },
   },
 
-   // AWS automatically injects the correct root 'timestamp' property
+  // AWS automatically injects the correct root 'timestamp' property
   timestamp: false,
   
   // remove unnessecary pid and hostname to keep payloads lean and cost-effective

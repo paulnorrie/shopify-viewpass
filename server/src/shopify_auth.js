@@ -5,7 +5,7 @@ import { logger } from './logger.js';
 
 export const authenticate = (headers, body, clientId, clientSecret) => {
     // Webhooks use HMAC for authentication, while browser requests use authorization header
-    logger.info(`Authenticating on ${JSON.stringify(headers)}\n${body} with ${clientId} and ${clientSecret}`);
+    logger.debug(`Authenticate: headers=${JSON.stringify(headers)}\n  body=${body}\n  clientId=${clientId}\n  clientSecrete=${clientSecret}`);
     if (headers.authorization) {
         // Shopify request from browser with JWT Authorization
         return verifyShopifyToken(headers, clientId, clientSecret)
@@ -18,7 +18,7 @@ export const authenticate = (headers, body, clientId, clientSecret) => {
 
 /**
  * Verify HMAC to see if a HTTP request is really coming from the Shopify App, i.e. is it
- * sgined by a secret known only to the App and this function.
+ * sgined by a secret known only to the App and this function.  This is used for Shopify Webhooks.
  * 
  * @param {readonly Object} headers - key:value pairs for each HTTP header
  * @param {readonly string | undefined} body - the body of the HTTP request
@@ -51,17 +51,26 @@ const verifyShopifyHmac = (headers, body, clientSecret) => {
         return isHmacValid;
     
     } catch (err) {
-        console.error("Unable to verify HMAC Signature: ", err.message);
+        logger.warn("Authenticate: Unable to verify HMAC Signature: ", err.message);
         return false;
     }
     
 }
 
-
+/**
+ * Verify the Authorization header for a Shopify Store to make sure it is a request from
+ * a Shopify Store that is known about.  This is used by Shopify app requests originating
+ * from Shopify.
+ * 
+ * @param {*} headers 
+ * @param {*} clientId 
+ * @param {*} clientSecret 
+ * @returns 
+ */
 export function verifyShopifyToken(headers, clientId, clientSecret) {
   const authHeader = headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('Missing token');
+    logger.warn("Authenticate: Missing token");
     return false; // missing token
   }
 
@@ -70,7 +79,7 @@ export function verifyShopifyToken(headers, clientId, clientSecret) {
   // Verify signature, audience, and expiration boundaries in one pass
   jwt.verify(token, clientSecret, { audience: clientId }, (err, decoded) => {
     if (err) {
-        console.log(`Invalid token parameters: ${err}`);
+        logger.warn("Authenticate: Invalid token parameters: ${err}");
       return false; // invalid token parameters
     }
     return true;

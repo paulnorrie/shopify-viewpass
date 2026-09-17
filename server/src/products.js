@@ -1,5 +1,6 @@
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "./db.js";
+import {logger} from "./logger.js";
 
 /**
  * @typedef {Object} Video
@@ -25,6 +26,8 @@ const DEFAULT_LICENCE_DAYS = 3;
  * @param {string} productId the Shopify Product Id
  * 
  * @returns {Product} either null if no matching record found or the product record
+ * 
+ * @throws {Error} if the product cannot be saved
  */
 export const getProduct = async (productId) => {
 
@@ -41,21 +44,15 @@ export const getProduct = async (productId) => {
       },
     };
 
-    try {
-      const command = new GetCommand(params);
-      const response = await docClient.send(command);
-
-      if (response.Item) {
-        console.log("Record found:", response.Item);
-        response.Item.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
-        return response.Item; 
-      } else {
-        console.warn("No matching product found.");
-        return null;
-      }
-    } catch (error) {
-      console.error("Error reading product:", error);
-      throw error;
+    const command = new GetCommand(params);
+    const response = await docClient.send(command);
+    if (response.Item) {
+      logger.debug("Product found:", response.Item);
+      response.Item.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
+      return response.Item; 
+    } else {
+      console.warn(`No product with id=${productId} found.`);
+      return null;
     }
 };
 
@@ -72,7 +69,8 @@ export const getProduct = async (productId) => {
  * @throws {Error} if the given information could not be saved
  */
 export const postProduct = async (productId, product) => {
-  console.log(`postProduct ${JSON.stringify(product)}`);
+  logger.debug(`Post Product ${JSON.stringify(product)}`);
+
   if (!productId || !isValidVideoArray(product.videos)) {
     const errStr = "Expected productId string and Video[]. Got productId=" + productId +
                     " as " +  typeof productId +
@@ -83,25 +81,20 @@ export const postProduct = async (productId, product) => {
 
   productId = sanitiseProductId(productId);
 
-  try {
-    const params = {
-        TableName: TABLE_NAME,
-        Item: {
-            productId: productId,
-            licenceDurationDays: product.licenceDurationDays,
-            videos: product.videos,
-        },
-    };
-    
-    const command = new PutCommand(params);
-    const response = await docClient.send(command);
-    
-    console.log("Success! Record written to table.");
-    return true;
-    } catch (error) {
-        console.error("Error saving product:", error);
-        throw error;
-    }
+  const params = {
+      TableName: TABLE_NAME,
+      Item: {
+          productId: productId,
+          licenceDurationDays: product.licenceDurationDays,
+          videos: product.videos,
+      },
+  };
+  
+  const command = new PutCommand(params);
+  await docClient.send(command);
+  
+  logger.debug(`Product with id=${productId} written`);
+  return true;
 };
 
 
@@ -136,6 +129,8 @@ function isValidVideoArray(arr) {
 const sanitiseProductId = (productId) => {
     return stripLeading(String(productId), "gid:/shopify/Product/");   
 }
+
+
 const stripLeading = (str, prefix) => {
     return str.startsWith(prefix) ? str.slice(prefix.length) : str;
 }

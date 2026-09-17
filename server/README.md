@@ -29,3 +29,7 @@ in the **Settings** menu under **Credentials**:
 sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --profile <your-aws-profile>
 ```
 
+## Running Unit Tests
+```bash
+npm test
+```

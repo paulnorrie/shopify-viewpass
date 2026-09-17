@@ -1,16 +1,14 @@
 /**
  * @file AWS Lambda entry point for calls routed via AWS API Gateway.
+ * 
  * @description The API Gateway has pre-defined routes it accepts and all such routes lead here.
  * The `route` function is where the most interesting action happens.
  */
 
-import {authenticate} from "./shopify_auth.js";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import {getProduct, postProduct} from "./products.js"
-import { issueLicence, getLicences } from "./licences.js";
-import { createPlayerToken, verifyPlayerToken, renderPlayer } from "./player.js";
-import { logger } from './logger.js';
-import { logStorage } from './logger.js';
+import { logger, logStorage } from "./logger.js";
+import { route } from "./route.js";
+
 
 // initialize Secure Secrets Manager client during the initialization phase
 const ssmClient = new SSMClient();
@@ -18,60 +16,54 @@ let cachedClientSecret = null;
 let cachedClientId = null;
 
 
+
 /**
  * AWS Lambda Entry Point for Node.js handler
  *  
  * @param {object} event AWS API Gateway HTTP API Events (Payload Format 2.0)
  * 
- * @returns a JSON Object with the body as a string
+ * @returns a JSON Object with the body as a string required by API HTTP Gateway
  */
 export const handler = async (event, context) => {
   
+    // run function so as to automatically log AWS Request Id's in all loggers so
+    // logs can reflect which entry is for which request.
     return await logStorage.run({ awsRequestId: context.awsRequestId }, async () => {
         try {
             // Ensure the client secret and id has been loaded from SSM
             const secret = await getClientSecret(); 
             const clientId = await getClientId(); 
 
+            // parse request from HTTP Gateway
             const httpMethod = event.requestContext?.http?.method;
-            switch(httpMethod) {
-                case 'OPTIONS':
-                    return handleOptions();
+            const params = event.pathParameters || {};
+            const routeKey = event.routeKey; 
+            const queryParams = event.queryStringParameters || {};
+            let rawBody = event.body || "";
+            if (event.isBase64Encoded) {
+                // eslint-disable-next-line no-undef
+                rawBody = Buffer.from(rawBody, "base64").toString("utf-8");
+            }
 
-                case 'POST':
-                case 'GET':
-                    let rawBody = event.body || "";
-                    if (event.isBase64Encoded) {
-                        rawBody = Buffer.from(rawBody, "base64").toString("utf-8");
-                    }
+            if (httpMethod == "OPTIONS") {
+                const result = {statusCode: 204}; // handle CORS Options pre-flight
+                return normalise(result);
+            } else {
+                const result = await route(routeKey, params, event.headers, rawBody, queryParams, clientId, secret);
+                return normalise(result);  
+            }
 
-                    // handle the request depending on the route
-                    const params = event.pathParameters || {};
-                    const routeKey = event.routeKey; 
-                    const queryParams = event.queryStringParameters || {};
-                    const result = await route(routeKey, params, event.headers, rawBody, queryParams);
-                    // return addAccessControlHeadersTo({
-                    //     statusCode: result.statusCode,
-                    //     body: JSON.stringify(result.body),
-                    // });
-                    return addAccessControlHeadersTo(result);
-                    break;
-
-                default:
-                    return addAccessControlHeadersTo({
-                        statusCode: 405,
-                        body: JSON.stringify({ ok: false }),
-                    });
-                }
-            } catch (err) {
-                logger.error(`Error handling request ${event}: ${err}`);
-                return addAccessControlHeadersTo({
-                    statusCode: 500,
-                    body: "Server error",
-                }); 
-            }  
-        });      
+        } catch (err) {
+            logger.error(`Error handling request ${event.routeKey}: ${err}\n\nEvent:${JSON.stringify(event)}`);
+            return normalise({
+                statusCode: 500,
+                body: "Server error",
+            }); 
+        }  
+    });      
 };
+
+
 
 
 /**
@@ -79,13 +71,26 @@ export const handler = async (event, context) => {
  * This is cached between calls to the same lambda instance.
  */
 const getClientSecret = async () => {
-  if (!cachedClientSecret){
-    const command = new GetParameterCommand({
-        Name: "/shopify/secret",
-        WithDecryption: true,
-    });
-    const response = await ssmClient.send(command);
-    cachedClientSecret = response.Parameter.Value;
+  if (!cachedClientSecret) {
+    try {
+        const command = new GetParameterCommand({
+            Name: "/shopify/secret",
+            WithDecryption: true,
+        });
+        const response = await ssmClient.send(command);
+        cachedClientSecret = response.Parameter?.Value;
+        if (!cachedClientSecret) {
+            throw Error;
+        }
+    } catch {
+        logger.fatal(`Cannot load Client Secret of Shopify App. Unable to process any requests.  \
+            Add the Client Secret to the Secret Store Manager, \
+            e.g. aws ssm put-parameter --name "/shopify/secret" --value "YOUR_ACTUAL_SHOPIFY_SECRET"  \
+             --type "SecureString" --overwrite --profile <your-aws-profile>.  \
+            The secret can be found in the Dev Dashboard  (https://dev.shopify.com/dashboard) in
+            App Settings > Credentials`);
+    }
+    
   }
   return cachedClientSecret;
 };
@@ -97,46 +102,53 @@ const getClientSecret = async () => {
  */
 const getClientId = async () => {
   if (!cachedClientId){
-    const command = new GetParameterCommand({
-        Name: "/shopify/client_id",
-        WithDecryption: true,
-    });
-    const response = await ssmClient.send(command);
-    cachedClientId = response.Parameter.Value;
+    try {
+        const command = new GetParameterCommand({
+            Name: "/shopify/client_id",
+            WithDecryption: true,
+        });
+        const response = await ssmClient.send(command);
+        cachedClientId = response.Parameter?.Value;
+        if (!cachedClientId) {
+            throw Error;
+        }
+    } catch {
+        logger.fatal(`Cannot load Client Id of Shopify App. Unable to process any requests.  \
+            Add the Client Id to the Secret Store Manager, \
+            e.g. aws ssm put-parameter --name "/shopify/client_id" --value "YOUR_ACTUAL_CLIENT_ID"  \
+             --type "SecureString" --overwrite --profile <your-aws-profile>.  \
+            The secret can be found in the Dev Dashboard  (https://dev.shopify.com/dashboard) in
+            App Settings > Credentials`);
+    }
   }
   return cachedClientId;
 };
 
 
-/*
- * Handle HTTP OPTIONS request
+/**
+ * Format a Javascript object into the format required by HTTP Gateway.
+ * - Access Control Headers
+ * - body should be a string
+ * 
+ * @param {object} obj an object
  */
-const handleOptions = () => {
-    return addAccessControlHeadersTo({
-       statusCode: 204,
-       body: JSON.stringify({ ok: true }),
-    });
+const normalise = (obj) => {
+    if (obj) {
+        if (typeof obj.body !== "string") {
+            obj.body = JSON.stringify(obj.body);
+        }
+        return addAccessControlHeadersTo(obj);
+    } else {
+        return {
+            statusCode: 500,
+            body: "Server Error. Unknown response."
+        }
+    }
+    
 }
 
 
-const authShopifyRequest = async (headers, body) => {
-    return authenticate(headers, body, await getClientId(), await getClientSecret());
-}
-
-const StdRespForbidden = {
-                            statusCode: 403,
-                            body: "Forbidden",
-                        };
-
-const StdRespOk = (contentType, body) => {
-    return {
-        statusCode:200,
-        'Content-Type': contentType,
-        body:body
-    };
-}
-
-                        /**
+/**
  * Add standard Access-Control-Allow-x headers to a response sent to the API Gateway.
  */
 const addAccessControlHeadersTo = (obj) => {
@@ -151,116 +163,3 @@ const addAccessControlHeadersTo = (obj) => {
     return obj;
 }
 
-
-/**
- * Route API Gateway Routes     
- * 
- * @param {string} routeKey from the API Gateway
- * @param {object} params from any API Gateway {variable} in the route
- * @param {string} body of the request as object, string, nu
- * 
- * @returns {object} containing statusCode and body (doesn't need to be string)
- */
-const route = async (routeKey, params, headers, body, queryParams = {}) => {
-    logger.debug(`Routing ${routeKey} with ${JSON.stringify(params)}\n${body}\n${JSON.stringify(queryParams)}`);
-    try {
-        switch (routeKey) {
-            
-            case "GET /products/{productId+}": {
-                if (! await authShopifyRequest(headers, body) ) return StdRespForbidden; 
-                
-                const product = await getProduct(params.productId);
-                if (product) {
-                    return {statusCode:200, body:JSON.stringify(product)};
-                } else {
-                    return {statusCode:404, body:"Not Found"};
-                }
-                break;
-            }
-
-            case "POST /products/{productId+}": {
-                if (! await authShopifyRequest(headers, body) ) return StdRespForbidden;
-                const product = JSON.parse(body);
-                const ok = await postProduct(String(params.productId), product);
-                return {statusCode:200, body:""};
-                break;
-            }
-
-            case "POST /webhooks/orders/paid": {
-                if (! await authShopifyRequest(headers, body) ) return StdRespForbidden;
-                const payload = JSON.parse(body);
-                const customerId = String(payload?.customer?.id);
-                for (const lineItem of payload?.line_items) {
-                    await issueLicence(customerId, String(lineItem.product_id));
-                }
-                
-                return {statusCode:200, body:""};
-                break;
-            }
-
-            case "POST /webhooks/orders/refund": {
-                //TODO: 
-            }
-
-            case "GET /myvideos/{customerId}": {
-                logger.info(`GET /myvideos/${params.customerId}\n\n${headers}\n\n${body}`)
-                if (! await authShopifyRequest(headers, body) ) return StdRespForbidden;
-                const licences = await getLicences(params.customerId);
-                return {
-                    statusCode:200, 
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body:JSON.stringify(licences)}; //TODO: always 200?
-                }
-
-            case "GET /player/{customerId}": {
-                logger.info(`GET /player/${params.customerId}?videoUrl=${queryParams?.videoUrl}&token=${queryParams?.token}`);
-                const videoUrl = queryParams?.videoUrl || "";
-                logger.info(`INDEX.JS QueryParams.token: ${queryParams.token}`);
-                logger.info(`INDEX.JS QueryParams.token: ${decodeURIComponent(queryParams.token)}`);
-                const validToken = verifyPlayerToken(queryParams.token, params.customerId, queryParams.videoUrl, await getClientSecret());
-                if (validToken) {
-                    const player = await renderPlayer(params.customerId, queryParams.videoUrl);
-                    logger.info(`RENDER PLAYER:\n${JSON.stringify(player)}`);
-                    return player;
-                } else {
-                    return {
-                        statusCode: 403,
-                        body: "Forbidden"
-                    }
-                }
-            }
-
-            case "GET /player-token": {
-                if (! await authShopifyRequest(headers, body) ) return StdRespForbidden;
-                logger.info(`GET /player-token?customerId=${queryParams?.customerId}&videoUrl=${queryParams?.videoUrl}`);
-                const videoUrl = queryParams?.videoUrl || "";
-                const customerId = queryParams?.customerId || "";
-                if (customerId && videoUrl) {
-                    const token = createPlayerToken(customerId, videoUrl, await getClientSecret());
-                    return {
-                        statusCode: 200,
-                        headers: {
-                            'Content-Type': 'text/plain; charset=utf-8',
-                        },
-                        body: token,
-                    }
-                } else {
-                    return {
-                        statusCode: 400,
-                        body: "Bad request"
-                    }
-                }
-            }
-
-            default:
-                logger.error(`No routing for ${routeKey}`);
-                return {statusCode:404, body:"Not Found"};
-        }
-    } catch (error) {
-        logger.error(`Error: ${error}`)
-        return {statusCode:500, body: "Server Error"};
-    }
-    
-}

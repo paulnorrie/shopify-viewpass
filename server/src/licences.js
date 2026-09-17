@@ -4,7 +4,7 @@
 
 import { docClient } from "./db.js";
 import { getProduct } from "./products.js";
-import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { logger } from './logger.js';
 
 const TABLE_NAME = "licences";
@@ -43,21 +43,16 @@ export const issueLicence = async (customerId, productId) => {
         return null;
     }
 
-    try {
-        const params = {
-            TableName: TABLE_NAME,
-            Item: licence
-        };
-        
-        const command = new PutCommand(params);
-        const response = await docClient.send(command);
-        
-        logger.debug(`Licence saved for customerId '${customerId}' to licence productId '${productId}'`);
-        return licence;
-    } catch (error) {
-        logger.error(`Error saving licence: ${error}`);
-        throw error;
-    }
+    const params = {
+        TableName: TABLE_NAME,
+        Item: licence
+    };
+    
+    const command = new PutCommand(params);
+    await docClient.send(command);
+    
+    logger.debug(`Licence saved for customerId '${customerId}' to licence productId '${productId}'`);
+    return licence;
 }
 
 
@@ -68,12 +63,11 @@ export const isLicenced = async (customerId, videoUrl) => {
     let result = false;
 
     const licences = await getLicences(customerId);
-    logger.info(`Licences for customerId=${customerId}:\n${JSON.stringify(licences)}`);
+    logger.debug(`Licences for customerId=${customerId}:\n${JSON.stringify(licences)}`);
     
     for (const licence of licences) {
         if (! isLicenceExpired(licence)) {
-            logger.info(`Licence not expired`);
-            const matchingVideo = videos?.find(video => video.videoUrl && video.videoUrl === videoUrl);
+            const matchingVideo = licence.videos?.find(video => video.videoUrl && video.videoUrl === videoUrl);
             logger.info(`videoUrl '${videoUrl} found is '${JSON.stringify(matchingVideo)}'`);
             if (canShowVideoNow(matchingVideo)) {
                 result = true;
