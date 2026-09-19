@@ -263,6 +263,16 @@ Resources:
 
 
 
+  # ---------------------------------------------------------------------------
+  # configure logging
+  # ---------------------------------------------------------------------------
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # The LogGroupName must strictly follow this pattern to intercept Lambda logs
+      LogGroupName: !Sub "/aws/lambda/shopify-backend-handler"
+      RetentionInDays: 30
+
 
 
 Outputs:
