@@ -11,38 +11,44 @@ function Extension() {
     
     const [licences, setLicences] = useState(/** @type {{ productId: string, customerId: string, licenceExpires?: string | number | null, videos: Array<{ videoUrl: string, showFrom: string }> }[]} */ ([]));
     const [productNames, setProductNames] = useState(/** @type {{ [key: string]: string }} */ ({}));
-    const [vimeoMeta, setVimeoMeta] = useState(/** @type {{ [key: string]: { title: string, thumbnailUrl: string } }} */ ({}));
-
-    console.log("My Videos page mounting");
-    shopify.query(`query {
-        node(id: "gid://shopify/Product/8286735368307") {
-            ... on Product {
-                title
-                }
-            }
-        }`).then(({data}) => console.log(`Got ${JSON.stringify(data)}`));
-    
+    const [vimeoMeta, setVimeoMeta] = useState(/** @type {{ [key: string]: { title: string, thumbnailUrl: string, thumbnailUrlWithPlayButton: string } }} */ ({}));
     const customerId = shopify.authenticatedAccount?.customer?.value?.id;
 
-    const normaliseProductId = (/** @type {string | number | null | undefined} */ productId) => {
-      if (!productId) return "";
+    /**
+     * Convert Shopify GID Product Ids to just Product Id's
+     * e.g. gid:/shopify/Product/82766111 -> 8276611
+     * 
+     * @param {*} productId to convert
+     * @returns {string | number | null | undefined} normalised product id
+     */
+    const normaliseProductId = (/** @type {string | null | number | undefined} */ productId) => {
+      if (!productId) return productId;
       return String(productId).replace(/^gid:\/\/shopify\/Product\//, "");
     };
 
+
     /**
-     * 
+     * Strip leading and trailing speech/quote marks from a string 
      * @param {string} str 
-     * @returns 
+     * @returns {string}
      */
     function stripSpeechMarks(str) {
         let cleaned = str;
-        if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+        if ((str.startsWith('"') && str.endsWith('"')) || 
+            (str.startsWith("'") && str.endsWith("'"))) {
             cleaned = str.slice(1, -1);
         }
         return cleaned;
     }
 
-    async function fetchProductNames(/** @type {Array<string | number | null | undefined>} */ productIds) {
+    
+    /**
+     * Get Shopify Product names for given productId's
+     * @param {Array<string>} productIds either the product Id or the Shopify GID
+     * @returns {Promise<{ [key: string]: string }>} productId, productName pairs for each found
+     * id in `productIds`.
+     */
+    async function fetchProductNames(productIds) {
       const uniqueIds = [...new Set(productIds.filter(Boolean).map(normaliseProductId).filter(Boolean))];
       if (uniqueIds.length === 0) {
         return {};
@@ -65,25 +71,35 @@ function Extension() {
           },
         );
 
-        /** @type {{ nodes?: Array<{ id?: string | null, title?: string | null }> }} */
+        /** @type {{ nodes?: Array<{ id: string, title: string }> }} */
         const payload = queryResult?.data ?? {};
 
         /** @type {{ [key: string]: string }} */
         const names = {};
 
         for (const node of payload.nodes ?? []) {
-          if (node?.title) {
-            names[normaliseProductId(node.id)] = node.title;
+          if (node?.id && node?.title) {
+            const productId = normaliseProductId(node.id);
+            if (productId) {
+                names[productId] = node.title;
+            } else {
+                console.warn(`Skipped lookup of product with invalid id returned from Shopify payload: ${JSON.stringify(node)}`)
+            }
           }
         }
 
         return names;
       } catch (error) {
-        console.warn('Product name lookup unavailable in this context; falling back to product IDs.', error);
+        console.warn('Product name lookup unavailable in this context; falling back to product IDs:', error);
         return {};
       }
     }
     
+
+    /**
+     * Return videos licenced for this customer
+     * @returns 
+     */
     async function fetchMyVideos() {
         if (!customerId) {
             return null;
@@ -101,6 +117,12 @@ function Extension() {
             });
     }
 
+
+    /**
+     * Get Vimeo Metadata for a video
+     * @param {*} videoUrl 
+     * @returns 
+     */
     async function fetchVimeoMeta(/** @type {string} */ videoUrl) {
       if (!videoUrl || !/^https?:\/\/.*/i.test(videoUrl)) {
         return null;
@@ -112,7 +134,7 @@ function Extension() {
           return null;
         }
 
-        /** @type {{ title?: string, thumbnail_url?: string } | null} */
+        /** @type {{ title?: string, thumbnail_url: string?, thumbnail_url_with_play_button?: string } | null} */
         const payload = await response.json();
 
         if (!payload) {
@@ -130,6 +152,13 @@ function Extension() {
       }
     }
     
+
+    /**
+     * Play a video
+     * @param {*} event 
+     * @param {*} videoUrl 
+     * @returns 
+     */
     async function handleVideoClicked (event, videoUrl) {
         event.preventDefault();
 
@@ -153,10 +182,9 @@ function Extension() {
     }
 
     
-    
-    /**
-    * Fetch MyVideos when component mounts
-    */ 
+  /**
+   * Fetch MyVideos when component mounts
+  */ 
   useEffect(() => {
     
     async function loadInitialData() {
@@ -184,6 +212,8 @@ function Extension() {
     loadInitialData();
 
   }, [customerId]); 
+
+
 
   useEffect(() => {
     if (!Array.isArray(licences)) {
@@ -222,6 +252,9 @@ function Extension() {
       isActive = false;
     };
   }, [licences, vimeoMeta]);
+ 
+  
+  
   // a licence is a customer-product combo
   const licencesToRender = Array.isArray(licences) ? licences : [];
 
