@@ -1,5 +1,11 @@
 # Installing
 
+Log in to Empower Therapies Dashboard and open this link:
+
+```
+https://admin.shopify.com/store/empower-therapies-nz/oauth/install_custom_app?client_id=89831ce5616715f0ecd725e5c3d8c597&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzg2MTYzNTg4LCJwZXJtYW5lbnRfZG9tYWluIjoiZW1wb3dlci10aGVyYXBpZXMtbnoubXlzaG9waWZ5LmNvbSIsImNsaWVudF9pZCI6Ijg5ODMxY2U1NjE2NzE1ZjBlY2Q3MjVlNWMzZDhjNTk3IiwicHVycG9zZSI6ImN1c3RvbV9hcHAifQ%3D%3D--9c1e661c12128695f76ced688f4953b016580bcc
+```
+
 ## Setting up in Shopify
 
 ### Configuring Product Videos
@@ -19,3 +25,11 @@ code straight in and it will search for the URL.
 1. If the Video should not be available to be played immediately after purchase, select the number of
 days after purchase it will be available to play.  0 days means available immediately.  
 
+## Testing
+A product licence is issued when an order is paid.  In Shopify dev stores, the order/paid signal is
+not sent when you purchase a product using the dummy gateway with test credit card credentials. 
+To create the product licence, you must therefore create an order in Shopify Admin > Orders page,
+and then Mark As Paid.
+
+## Re-issuing a Licence for free
+The same method can be used to issue/re-issue a new licence by creating an order in Shopify Admin > Orders page, then Mark as Paid since no additional payment is required.
