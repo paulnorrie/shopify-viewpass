@@ -1,12 +1,20 @@
 # Installing
 
+## Install Server in AWS Account
+You need to have an AWS Account, configure the Shopify secrets, and install the AWS Stack.
+Read [Building and installing Shopify-Viewpass Server](server/README.md)
+
+## Install App in Shopify
+First edit [application_url in shopify.app.toml](ui/shopify.app.toml) and then deploy.  Read
+[Building and installing Shopify-Viewpass in Shopify](ui/README.md)
+
 Log in to Empower Therapies Dashboard and open this link:
 
 ```
 https://admin.shopify.com/store/empower-therapies-nz/oauth/install_custom_app?client_id=89831ce5616715f0ecd725e5c3d8c597&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzg2MTYzNTg4LCJwZXJtYW5lbnRfZG9tYWluIjoiZW1wb3dlci10aGVyYXBpZXMtbnoubXlzaG9waWZ5LmNvbSIsImNsaWVudF9pZCI6Ijg5ODMxY2U1NjE2NzE1ZjBlY2Q3MjVlNWMzZDhjNTk3IiwicHVycG9zZSI6ImN1c3RvbV9hcHAifQ%3D%3D--9c1e661c12128695f76ced688f4953b016580bcc
 ```
 
-## Setting up=
+## Setting up
 
 ### Configuring Vimeo Videos
 If you configure Vimeo videos with domain-level-security, they can only be played on that domain.
@@ -29,6 +37,14 @@ code straight in and it will search for the URL.
 1. If the Video should not be available to be played immediately after purchase, select the number of
 days after purchase it will be available to play.  0 days means available immediately.  
 
+### Configuring the MyVideos page in Shopify
+1. Shopify Admin > Settings
+2. Customer Accounts > Configurations
+3. Click Edit for the configuration you need
+4. In the top left corner, click the Apps
+5. Click the + sign to the right of My Videos and select Add Page to Accounts
+6. Add a menu item
+   
 ## Testing
 A product licence is issued when an order is paid.  In Shopify dev stores, the order/paid signal is
 not sent when you purchase a product using the dummy gateway with test credit card credentials. 
