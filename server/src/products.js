@@ -51,7 +51,9 @@ export const getProduct = async (productId) => {
       response.Item.licenceDurationDays ??= DEFAULT_LICENCE_DAYS;
       return response.Item; 
     } else {
-      logger.debug(`No product with id=${productId} found.`);
+      logger.debug(`No product with id=${productId} found.\
+                    This is only an error if the product was configured with videos using the \
+                    product-videos-block in Shopify Admin.`);
       return null;
     }
 };

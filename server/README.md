@@ -8,9 +8,15 @@
 
 ## Creating the AWS Stack
 
-### Configure your Shopify Client Secret in your AWS Stack
+### Configure your Shopify Client Secret and Id in your AWS Stack
 An AWS Stack needs to be created. If it does not exist you need to first populate the
-Shopify Client Secret to be able to authenticate webhook calls from Shopify:
+Shopify Client Secret to be able to authenticate requests.
+
+The Client Secret authenticates the app with JWT Tokens.  The JWT Token contains the Client Id indicating
+that it is the Viewpass app making the request (not someone else). 
+Additionally Shopify sends webhooks to the app backend using the Client Secret to ensure the 
+backend can authenticate the request as from Shopify.
+
 ```bash
 aws ssm put-parameter --name "/shopify/secret" --value "YOUR_ACTUAL_SHOPIFY_SECRET" \
     --type "SecureString" --overwrite --profile <your-aws-profile>

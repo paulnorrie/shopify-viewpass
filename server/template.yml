@@ -45,10 +45,6 @@ Resources:
                 Resource:
                   - !GetAtt ProductsTable.Arn
                   - !GetAtt LicencesTable.Arn
-                  - !GetAtt ShopifySessionsTable.Arn
-                  - !Sub
-                    - '${TableArn}/index/*'
-                    - TableArn: !GetAtt ShopifySessionsTable.Arn
               # Allow access to all SSM Parameters
               - Effect: Allow
                 Action:
@@ -59,6 +55,62 @@ Resources:
                 Action:
                   - kms:Decrypt
                 Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm'
+
+  # ---------------------------------------------------------------------------
+  # Resource: IAM Execution Role for the StepFunctions to read/write
+  #           ViewStatsTable, since this doesn't touch the Lambda
+  # ---------------------------------------------------------------------------
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - states.amazonaws.com 
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDbAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:GetItem
+                Resource: !GetAtt ViewStatsTable.Arn
+  
+
+
+  # ---------------------------------------------------------------------------
+  # Resource: IAM Execution Role allowing API Gateway <-> Step Functions
+  # ---------------------------------------------------------------------------
+  ApiStepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsSyncExecuteAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartSyncExecution
+                Resource: 
+                  - !Ref GetItemStateMachine
+                  - !Ref PutItemStateMachine
 
   # ---------------------------------------------------------------------------
   # Resource: DynamoDB Table for Product Details
@@ -96,35 +148,23 @@ Resources:
           KeyType: RANGE
 
   # ---------------------------------------------------------------------------
-  # Resource: DynamoDB Table for Shopify Sessions
+  # Resource: DynamoDB Table for Viewing Statistics
   # ---------------------------------------------------------------------------
-  ShopifySessionsTable:
+  ViewStatsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: shopify_sessions
+      TableName: view_stats
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: id
+        - AttributeName: customerId
           AttributeType: S
-        - AttributeName: shop
+        - AttributeName: videoUrl
           AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: customerId
           KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: shop_index
-          KeySchema:
-            - AttributeName: shop
-              KeyType: HASH
-          Projection:
-            ProjectionType: INCLUDE
-            NonKeyAttributes:
-              - id
-              # - shop
-      # Enable TTL using Shopify's default expiration attribute
-      TimeToLiveSpecification:
-        AttributeName: expires
-        Enabled: true
+        - AttributeName: videoUrl
+          KeyType: RANGE
 
 
   # ---------------------------------------------------------------------------
@@ -153,8 +193,70 @@ Resources:
         EntryPoints: 
           - index.js  
 
+
+  # =========================================================================
+  # State Machine Step Function to read/write from/to DynamoDb.  This sits
+  # in-between API HTTP Gateway and DynamoDb since HTTP Gateways can't natively
+  # connect to DynamoDb 
+  # =========================================================================
+  GetItemStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: GetItemFromDynamoDB
+      StateMachineType: EXPRESS
+      RoleArn: !GetAtt StepFunctionsExecutionRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "Fetch an item from DynamoDB",
+          "StartAt": "DynamoDBGetItem",
+          "States": {
+            "DynamoDBGetItem": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:dynamodb:getItem",
+              "Parameters": {
+                "TableName": "${ViewStatsTable}",
+                "Key": {
+                  "customerId": { "S.$": "$.customerId" }
+                }
+              },
+              "End": true
+            }
+          }
+        }
+
+  PutItemStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: PutItemToDynamoDB
+      StateMachineType: EXPRESS
+      RoleArn: !GetAtt StepFunctionsExecutionRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "Save a payload straight into DynamoDB",
+          "StartAt": "DynamoDBPutItem",
+          "States": {
+            "DynamoDBPutItem": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:dynamodb:putItem",
+              "Parameters": {
+                "TableName": "${ViewStatsTable}",
+                "Item": {
+                  "customerId": { "S.$": "$.customerId" },
+                  "videoUrl": { "S.$": "$.videoUrl" },
+                  "uniqueSeconds": { "N": "$.uniqueSeconds" },
+                  "coveragePercent": { "N": "$.coveragePercent" },
+                  "timestamp": { "N": "$.timestamp" }
+                }
+              },
+              "End": true
+            }
+          }
+        }
+
+
   # ---------------------------------------------------------------------------
   # Resource: HTTP API Gateway (API Gateway v2)
+  # used for all requests that go to the Lambda (i.e. not viewing stats)
   # ---------------------------------------------------------------------------
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
@@ -185,14 +287,45 @@ Resources:
       StageName: '$default'
       AutoDeploy: true
 
-  HttpApiIntegration:
+  HttpApiLambdaIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref HttpApi
       IntegrationType: AWS_PROXY
       IntegrationUri: !GetAtt ShopifyAppLambdaFunction.Arn
       PayloadFormatVersion: '2.0'
+  
+  # HTTP API does not have a direct service integration with DynamoDb (unlike REST API)
+  # so go through a Step Function for GET/Get-Item
+  HttpApiGetStepFunctionIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationSubtype: StepFunctions-StartSyncExecution
+      PayloadFormatVersion: "1.0" # Must be 1.0 for AWS service integration subtypes
+      CredentialsArn: !GetAtt ApiStepFunctionsExecutionRole.Arn
+      RequestParameters:
+        StateMachineArn: !Ref GetItemStateMachine
+        # This extracts the 'id' variable out of your HTTP route path (e.g., /viewstats/{customerId})
+        # and passes it as JSON input into the Step Function execution payload
+        Input: "{\"customerId\": \"$request.path.customerId\"}"
 
+  # ... and same for POST/Put-Item
+  HttpApiPostStepFunctionIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationSubtype: StepFunctions-StartSyncExecution
+      PayloadFormatVersion: "1.0"
+      CredentialsArn: !GetAtt ApiStepFunctionsExecutionRole.Arn
+      RequestParameters:
+        StateMachineArn: !Ref PutItemStateMachine
+        # Forwards the raw HTTP request body string directly as the input to Step Functions
+        Input: "$request.body"
+
+  # POST /products/{productId+}
   PostProductRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -201,8 +334,9 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
 
+  # GET /products/{productId+}
   GetProductRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -211,8 +345,9 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
 
+  # POST /webhooks/orders/paid
   WebhooksOrdersPaidRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -221,8 +356,9 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
 
+  # GET /myvideos/{customerId}
   GetMyVideosRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -231,8 +367,9 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
 
+  # GET /player-token
   PlayerTokenRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -241,8 +378,9 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
 
+  # GET /player/{customerId}
   PlayerRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -251,7 +389,25 @@ Resources:
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref HttpApiIntegration
+          - !Ref HttpApiLambdaIntegration
+
+  # POST /viewstats -> step-function -> DynamoDb
+  PostStatsRoute: 
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /viewstats'
+      Target: !Sub 'integrations/${HttpApiPostStepFunctionIntegration}'
+  # TODO: JWT authentication
+  
+  # GET /viewstats -> step-function -> DynamoDb
+  GetStatsRoute: 
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /viewstats/{customerId}'
+      Target: !Sub 'integrations/${HttpApiGetStepFunctionIntegration}'
+  # TODO: JWT authentication
 
   LambdaPermissionForHttpApi:
     Type: AWS::Lambda::Permission
@@ -260,7 +416,6 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*'
-
 
 
   # ---------------------------------------------------------------------------
@@ -277,19 +432,10 @@ Resources:
 
 Outputs:
   
-
-  TableArn:
-    Description: 'The ARN of the created Shopify sessions table'
-    Value: !GetAtt ShopifySessionsTable.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-TableArn'
-  
-  LambdaFunctionArn:
-    Description: 'The ARN of the Shopify backend Lambda function'
-    Value: !GetAtt ShopifyAppLambdaFunction.Arn
-
   HttpApiUrl:
-    Description: 'The URL of the HTTP API endpoint'
+    Description: 'The URL of the HTTP API endpoint. Vimeo Domain-Level security should use this domain'
     Value: !GetAtt HttpApi.ApiEndpoint
     Export:
       Name: !Sub '${AWS::StackName}-HttpApiUrl'
+
+  

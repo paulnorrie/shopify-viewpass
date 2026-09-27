@@ -92,6 +92,7 @@ export const isLicenced = async (customerId, videoUrl) => {
  * @throws Error on error reading records
  */
 export const getLicences = async (customerId) => {
+    logger.debug(`Getting Licences for customerId=${customerId}`);
     if (! customerId) {
         return [];
     }
@@ -118,6 +119,7 @@ export const getLicences = async (customerId) => {
             ExclusiveStartKey = result.LastEvaluatedKey;
         } while (ExclusiveStartKey);
 
+        logger.debug(`Licences: ${JSON.stringify(items)}`);
         return items;
 
     } catch (error) {
@@ -125,15 +127,6 @@ export const getLicences = async (customerId) => {
         throw error;
     }
 
-    // Product Licence
-    // customerId:
-    // productId: 
-    //   licenceCreated: 
-    //   licenceExpires:
-    //   licenceRevoked:??
-    //   videos[]:
-    //     videoUrl:
-    //     showFrom: (in order)
 }
 
 

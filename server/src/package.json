@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "set-secret": "f() { val=\"$1\"; if [ \"$val\" = \"--\" ]; then val=\"$2\"; shift 2; else shift 1; fi; aws ssm put-parameter --name \"/shopify/client_secret\" --value \"$val\" --type \"SecureString\" --overwrite \"$@\"; }; f",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --runInBand"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +14,14 @@
   "dependencies": {
     "jsonwebtoken": "^9.0.3",
     "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "jest": "^29.7.0",
+    "aws-sdk-client-mock": "^2.1.0",
+    "@aws-sdk/lib-dynamodb": "^3.400.0",
+    "@aws-sdk/client-dynamodb": "^3.400.0"
   }
 }

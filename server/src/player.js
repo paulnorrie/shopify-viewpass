@@ -22,11 +22,8 @@ export const createPlayerToken = (customerId, videoUrl, secret) => {
         //     expiresIn: '30m'
         // }
     //);
-    logger.info(`CreatePlayerToken: secret ${secret}`);
-    logger.info(`CreatePlayerToken: token ${token}`);
-
-    const valid = verifyPlayerToken(token, customerId, videoUrl, secret);
-    logger.info(`CreatePlayerToken: valid ${valid}`);
+    
+    //const valid = verifyPlayerToken(token, customerId, videoUrl, secret);
     return token;
 }
 
@@ -178,12 +175,87 @@ export const renderPlayer = async (customerId, videoUrl) => {
 
         <script src="https://player.vimeo.com/api/player.js"></script>
         <script>
+            let lastSavedTime = 0;
+            const SAVE_INTERVAL_SECONDS = 15; // Only write to DB every 15 seconds
+    
+            async function shipAnalyticsToDynamoDB(player, isFinalCall = false) {
+                try {
+                    // Fetch the current ranges and total duration from Vimeo
+                    const [playedRanges, duration] = await Promise.all([
+                        player.getPlayed(),
+                        player.getDuration()
+                    ]);
+
+                    // Calculate unique seconds watched
+                    let uniqueSeconds = 0;
+                    playedRanges.forEach(range => {
+                        uniqueSeconds += (range[1] - range[0]);
+                    });
+                    
+                    // must match StepFunction
+                    //const payload = JSON.stringify({
+                    //    "customerId": { "S": "${customerId}" },
+                    //    "videoUrl": { "S": "${finalUrl}" },
+                    //    "uniqueSeconds": { "N" : String(Math.round(uniqueSeconds)) },
+                    //    "coveragePercent":{ "N": String(Math.round((uniqueSeconds / duration) * 100)) },
+                    //    "timestamp": { "N": String(Date.now()) }
+                    //});
+                    const payload = JSON.stringify({
+                        customerId: "${customerId}",
+                        videoUrl: "${finalUrl}",
+                        uniqueSeconds: Math.round(uniqueSeconds),
+                        coveragePercent:Math.round((uniqueSeconds / duration) * 100),
+                        timestamp: String(Date.now())
+                    });
+
+                    const url = '/viewstats';
+
+                    if (isFinalCall) {
+                        // fetch() will fail if the tab is closing.
+                        // sendBeacon runs asynchronously in the background and is guaranteed to finish.
+                        const blob = new Blob([payload], { type: 'application/json' });
+                        navigator.sendBeacon(url, blob);
+                        console.log('Final analytics queued via sendBeacon.');
+                    } else {
+                        // Standard light network request during normal playback
+                        await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: payload
+                        });
+                        console.log('Throttled analytics written to DynamoDB.');
+                    }
+                } catch (error) {
+                    console.error('Analytics sync failed:', error);
+                }
+            }
+
           try {
             const iframe = document.getElementById('vimeo-player');
             if (iframe && window.Vimeo && window.Vimeo.Player) {
               const player = new Vimeo.Player(iframe);
               player.ready().then(() => {
                 try { player.play(); } catch (error) { console.warn('Autoplay was blocked:', error); }
+              });
+
+              // POST viewing stats every 15 seconds
+              player.on('timeupdate', function(data) {
+                  // If the user has progressed 15s past our last save point, write to DB
+                  if (data.seconds - lastSavedTime >= SAVE_INTERVAL_SECONDS) {
+                      lastSavedTime = data.seconds;
+                      shipAnalyticsToDynamoDB(player, false);
+                  }
+              });
+
+              // also save immediately when they pause or finish the video
+              player.on('pause', () => shipAnalyticsToDynamoDB(player, false));
+              player.on('ended', () => shipAnalyticsToDynamoDB(player, false));
+
+              // also when tab or window closes or back button fires
+              document.addEventListener('visibilitychange', function() {
+                  if (document.visibilityState === 'hidden') {
+                      shipAnalyticsToDynamoDB(player, true); // true flags it to use sendBeacon
+                  }
               });
             }
           } catch (error) {

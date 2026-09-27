@@ -111,7 +111,7 @@ export const route = async (routeKey, params, headers, body, queryParams, client
                     const validToken = verifyPlayerToken(queryParams.token, params.customerId, queryParams.videoUrl, clientSecret);
                     if (validToken) {
                         const player = await renderPlayer(params.customerId, queryParams.videoUrl);
-                        result = StdRespOk("text/html", player);
+                        result = player;
                     } else {
                         result = StdRespForbidden;
                     }

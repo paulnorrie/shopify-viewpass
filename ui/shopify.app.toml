@@ -2,7 +2,7 @@
 
 client_id = "89831ce5616715f0ecd725e5c3d8c597"
 name = "viewpass"
-application_url = "https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/" # API Gateway URL
+application_url = "https://ymgtiryw2k.execute-api.us-east-1.amazonaws.com/" # API Gateway URL
                 # Can test sending a webhook while `shopify app dev` is running locally with
                 # `shopify app webhook trigger --topic=orders/create --address=https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/webhooks/orders/create --delivery-method=http --api-version=2026-01`
 embedded = true
