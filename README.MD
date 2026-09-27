@@ -6,9 +6,13 @@ Log in to Empower Therapies Dashboard and open this link:
 https://admin.shopify.com/store/empower-therapies-nz/oauth/install_custom_app?client_id=89831ce5616715f0ecd725e5c3d8c597&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzg2MTYzNTg4LCJwZXJtYW5lbnRfZG9tYWluIjoiZW1wb3dlci10aGVyYXBpZXMtbnoubXlzaG9waWZ5LmNvbSIsImNsaWVudF9pZCI6Ijg5ODMxY2U1NjE2NzE1ZjBlY2Q3MjVlNWMzZDhjNTk3IiwicHVycG9zZSI6ImN1c3RvbV9hcHAifQ%3D%3D--9c1e661c12128695f76ced688f4953b016580bcc
 ```
 
-## Setting up in Shopify
+## Setting up=
 
-### Configuring Product Videos
+### Configuring Vimeo Videos
+If you configure Vimeo videos with domain-level-security, they can only be played on that domain.
+You must use the domain of the API, not your shopify site, since playback is not done through Shopify.
+
+### Configuring Product Videos in Shopify
 
 Each Shopify Product may have one or more Vimeo videos.  Only videos in Vimeo are supported.
 To add videos to a Shopify Product, in your Product:
