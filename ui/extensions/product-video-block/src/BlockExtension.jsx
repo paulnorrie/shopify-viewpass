@@ -193,7 +193,8 @@ function Extension() {
                     name="licenceDays"
                     value={String(licenceDurationDays)}
                     min={1} 
-                    /*label="Number of days the videos are available for"*/
+                    label="Number of days the videos are available for"
+                    labelAccessibilityVisibility="exclusive"
                     onInput={(event) => {
                             const target = /** @type {{ value?: string | null }} */ (event.target);
                             onLicenceDaysChange(Number(target?.value ?? 0));

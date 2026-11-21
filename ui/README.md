@@ -26,7 +26,6 @@ For dev & production:
 ```shell
 npm run shopify:dev:prod 
 ```
-For UAT, there is no local app development.
 
 > [!IMPORTANT]
 > NB: avoid `shopify app dev` because it does not generate `/extensions/customer-account-ui-extension/generated-config.ts`
@@ -36,19 +35,33 @@ Press P to open the URL to your app. Once you click install, you can start devel
 
 Local development is powered by [Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps/test-apps-locally). It logs into your account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
 
+## To test on a UAT environment
+With a clone of the store, install the UAT App on the UAT store using the Dev Dashboard, then run:
+```shell
+ npm run shopify:deploy:uat
+```
+
+You will get a message:
+`Network access must be requested and approved in order for the My-Videos extension to be published.`
+
+
 ## Deployment
 
 For dev & production:
 ```shell
 npm run shopify:deploy:prod
 ```
-For UAT - deploy as a normal app
+For UAT, deploy the app and its extensions to the UAT app:
+```shell
+npm run shopify:deploy:uat
+```
 
-For the same reasons as above, avoid `shopify app deploy`.
+Use the scripts above rather than running `shopify app deploy` directly, so the generated extension configuration is refreshed first.
 
 ## Showing the extensions in the shop
-1. In any Product details page, scroll to the bottom and add the Product Videos block.
-2. In Settings > Checkout > Edit ... add the My-Videos page with a menu to Profile.
+1. Make sure the app extension has been deployed to the same app installed in the shop. Installing `viewpass-uat` alone does not publish the extension to that app.
+2. In the shop's Shopify Admin, open a product, scroll to the bottom of the product details page, choose **Add block**, select **Product Videos**, and save the page.
+3. In Settings > Checkout > Edit ... add the My-Videos page with a menu to Profile.
 
 ## Notes
 Customers get the videos that are configured with the product when they order it. If those videos
