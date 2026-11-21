@@ -7,10 +7,12 @@
 * aws sam cli
 
 ## Creating the AWS Stack
+The Shopify App in [ui](../ui) supports two Shopify sites: one for uat
+and one for production as the are configured as different apps.  This means you can have two
+corresponding AWS accounts: for uat and for production.
 
 ### Configure your Shopify Client Secret and Id in your AWS Stack
-An AWS Stack needs to be created. If it does not exist you need to first populate the
-Shopify Client Secret to be able to authenticate requests.
+You need to first populate the Shopify Client Secret and Client Id to be able to authenticate requests.
 
 The Client Secret authenticates the app with JWT Tokens.  The JWT Token contains the Client Id indicating
 that it is the Viewpass app making the request (not someone else). 
@@ -32,7 +34,7 @@ in the **Settings** menu under **Credentials**:
 
 ### Create or update the AWS Stack
 ```bash
-sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --profile <your-aws-profile>
+sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --config-env <your-sam-config>
 ```
 
 ## Running Unit Tests

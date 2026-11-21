@@ -1,13 +1,36 @@
 version = 0.1
 
-[default.deploy.parameters]
+[prod.deploy.parameters]
 stack_name = "shopify-viewpass"
 resolve_s3 = true
 s3_prefix = "shopify-viewpass"
-profile = "iamadmin-general"
+profile = "mels-aws"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 image_repositories = []
+region = "ap-southeast-2"
 
 [default.global.parameters]
+region = "ap-southeast-2"
+
+[staging.deploy.parameters]
+stack_name = "shopify-viewpass"
+profile = "staging"
+resolve_s3 = true
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = false
+
+[uat.deploy.parameters]
+stack_name = "shopify-viewpass"
+profile = "uat"
+resolve_s3 = true
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+s3_prefix = "shopify-viewpass"
+disable_rollback = true
+image_repositories = []
+
+[uat.global.parameters]
 region = "us-east-1"

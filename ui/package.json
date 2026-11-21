@@ -6,22 +6,25 @@
     "extensions/*"
   ],
   "scripts": {
-    "generate:backend-url": "node scripts/generate-backend-url.mjs",
-    "generate:backend-url:staging": "node scripts/generate-backend-url.mjs --config staging",
+    "generate:backend-url": "node scripts/generate-backend-url.mjs --config uat",
+    "generate:backend-url:uat": "node scripts/generate-backend-url.mjs --config uat",
+    "generate:backend-url:prod": "node scripts/generate-backend-url.mjs --config shopify.app.toml",
 
     "shopify": "shopify",
     "build": "npm run generate:backend-url && shopify app build",
 
-    "dev": "npm run generate:backend-url && shopify app dev",
-    "shopify:dev": "npm run generate:backend-url && shopify app dev",
-    "shopify:dev:staging": "npm run generate:backend-url:staging && shopify app dev --config staging",
+    "dev": "npm run generate:backend-url && shopify app dev --config uat",
+    "shopify:dev": "npm run generate:backend-url && shopify app dev --config uat",
+    "shopify:dev:uat": "npm run generate:backend-url:uat && shopify app dev --config uat",
+    "shopify:dev:prod": "npm run generate:backend-url:uat && shopify app dev --config shopify.app.toml",
 
     "info": "shopify app info",
     "generate": "shopify app generate",
     
-    "deploy": "npm run generate:backend-url && shopify app deploy",
-    "shopify:deploy": "npm run generate:backend-url && shopify app deploy",
-    "shopify:deploy:staging": "npm run generate:backend-url:staging && shopify app deploy --config staging"
+    "deploy": "npm run generate:backend-url && shopify app deploy --config uat",
+    "shopify:deploy": "npm run generate:backend-url && shopify app deploy --config uat",
+    "shopify:deploy:uat": "npm run generate:backend-url:uat && shopify app deploy --config uat",
+    "shopify:deploy:prod": "npm run generate:backend-url:uat && shopify app deploy --config shopify.app.toml"
   },
   "trustedDependencies": [
     "@shopify/plugin-cloudflare"

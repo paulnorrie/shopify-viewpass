@@ -1,3 +1,8 @@
+Viewpass is a Shopify Plugin that allows empowertherapies.co.nz to securely licence/rent videos.
+It is comprised of:
+1. The Shopify App (which is a Custom Distribution) in the [ui folder](ui)
+2. The backend (running on AWS) in the [server folder](server)
+
 # Installing
 
 ## Install Server in AWS Account

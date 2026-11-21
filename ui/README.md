@@ -1,36 +1,49 @@
 # Shopify Viewpass UI 
 
 This is an Extension-Only Shopify App using [Preact](https://preactjs.com/) and 
-[Vite](https://vite.dev/). It uses Shopify's [Direct API access](https://shopify.dev/docs/api/app-home#direct-api-access) 
-and [App Bridge](https://shopify.dev/docs/api/app-bridge) to make authenticated calls to the 
-Shopify Admin API directly from the browser — no server required.
+[Vite](https://vite.dev/).
 
+There are actually two Apps:
+1. viewpass, which is used for development and production
+2. viewpass-uat,  to be used for testing and user-acceptance on a development copy of the production website
 
-NB: for the Bogus Payment gateway/test mode in Shopify payments, the orders/paid webhook won’t trigger
-You can just go into Shopify Admin and create an order and click mark as paid and that will trigger your webhook for you.
+> [!TIP]   
+> NB: for the Bogus Payment gateway/test mode in Shopify payments, the orders/paid webhook won’t trigger
+> You can just go into Shopify Admin and create an order and click mark as paid and that will trigger your webhook for > you.
 
-## Quick start
+## Prerequisites
 
-### Prerequisites
+1. [Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started).
+2. The [server backend](../server/README.md) is deployed in a uat and production environment.
+3. The `application_url` in [shopify.app.toml](shopify.app.toml) is set to the AWS API Gateway URL in the
+production AWS environment.
+1. The `application_url` in [shopify.app.uat.toml](shopify.app.uat.toml) is set to the AWS API Gateway URL in the
+uat AWS environment
 
-[Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started).
+## To run the app locally during development
 
-### Local Development
-
+For dev & production:
 ```shell
-npm run dev 
+npm run shopify:dev:prod 
 ```
-NB: avoid `shopify app dev` because it does not generate `/extensions/customer-account-ui-extension/generated-config.ts`
-and calls to `fetch()` will fail in this extension.
+For UAT, there is no local app development.
+
+> [!IMPORTANT]
+> NB: avoid `shopify app dev` because it does not generate `/extensions/customer-account-ui-extension/generated-config.ts`
+> and calls to `fetch()` will fail in this extension.
 
 Press P to open the URL to your app. Once you click install, you can start development.
 
 Local development is powered by [Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps/test-apps-locally). It logs into your account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
 
-### Deployment
+## Deployment
+
+For dev & production:
 ```shell
-npm run deploy
+npm run shopify:deploy:prod
 ```
+For UAT - deploy as a normal app
+
 For the same reasons as above, avoid `shopify app deploy`.
 
 ## Showing the extensions in the shop

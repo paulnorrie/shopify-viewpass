@@ -1,8 +1,12 @@
-# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+# -------------------------------------------------------------------------------------------------
+# Shopify App Config
+#
+# PRODUCTION (for staging, see shopify.app.viewpass-staging.toml)
+# -------------------------------------------------------------------------------------------------
 
 client_id = "89831ce5616715f0ecd725e5c3d8c597"
 name = "viewpass"
-application_url = "https://ymgtiryw2k.execute-api.us-east-1.amazonaws.com/" # API Gateway URL
+application_url = "https://osonrw396f.execute-api.ap-southeast-2.amazonaws.com/"
                 # Can test sending a webhook while `shopify app dev` is running locally with
                 # `shopify app webhook trigger --topic=orders/create --address=https://fhi0q3qzzl.execute-api.us-east-1.amazonaws.com/webhooks/orders/create --delivery-method=http --api-version=2026-01`
 embedded = true
