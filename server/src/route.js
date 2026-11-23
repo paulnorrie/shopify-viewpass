@@ -65,7 +65,7 @@ export const route = async (routeKey, params, headers, body, queryParams, client
                 }catch (error) {
                     logger.error(`Error saving product: ${error}`);
                 }
-                result = StdRespOk;
+                result = StdRespOk("text/plain", "");
             }
             break;
 
@@ -80,7 +80,7 @@ export const route = async (routeKey, params, headers, body, queryParams, client
                         await issueLicence(customerId, String(lineItem.product_id));
                     }
                 
-                    result = StdRespOk;
+                    result = StdRespOk("text./plain", "");
                 } catch (error) {
                     logger.error(`Error creating licence on order paid: ${error}`);
                     result = StdRespServerError;

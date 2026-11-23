@@ -11,7 +11,9 @@ There are actually two Apps:
 > NB: for the Bogus Payment gateway/test mode in Shopify payments, the orders/paid webhook won’t trigger
 > You can just go into Shopify Admin and create an order and click mark as paid and that will trigger your webhook for > you.
 
-## Prerequisites
+## Installation and Development
+
+### Prerequisites
 
 1. [Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started).
 2. The [server backend](../server/README.md) is deployed in a uat and production environment.
@@ -20,11 +22,24 @@ production AWS environment.
 1. The `application_url` in [shopify.app.uat.toml](shopify.app.uat.toml) is set to the AWS API Gateway URL in the
 uat AWS environment
 
-## To run the app locally during development
+### Installation and Deployment to the Store
+For a dev site in your Shopify Partner account, or the production site, you must install the app
+
+```shell
+npm run dev
+```
+For a UAT site not in your Partner account:
+```shell
+npm run shopify:deploy:uat
+```
+
+Use the scripts above rather than running `shopify app deploy` directly, so the generated extension configuration is refreshed first.
+
+### To run the app locally during development
 
 For dev & production:
 ```shell
-npm run shopify:dev:prod 
+npm run dev
 ```
 
 > [!IMPORTANT]
@@ -35,30 +50,20 @@ Press P to open the URL to your app. Once you click install, you can start devel
 
 Local development is powered by [Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps/test-apps-locally). It logs into your account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
 
-## To test on a UAT environment
+### To test on a UAT environment
 With a clone of the store, install the UAT App on the UAT store using the Dev Dashboard, then run:
 ```shell
  npm run shopify:deploy:uat
 ```
 
-You will get a message:
+If you get a message:
 `Network access must be requested and approved in order for the My-Videos extension to be published.`
+In the dev.shopify.com for the app, you must `Enable Network Access` in Settings and rerun the above npm command.
 
 
-## Deployment
+## Use
 
-For dev & production:
-```shell
-npm run shopify:deploy:prod
-```
-For UAT, deploy the app and its extensions to the UAT app:
-```shell
-npm run shopify:deploy:uat
-```
-
-Use the scripts above rather than running `shopify app deploy` directly, so the generated extension configuration is refreshed first.
-
-## Showing the extensions in the shop
+### Showing the extensions in the shop
 1. Make sure the app extension has been deployed to the same app installed in the shop. Installing `viewpass-uat` alone does not publish the extension to that app.
 2. In the shop's Shopify Admin, open a product, scroll to the bottom of the product details page, choose **Add block**, select **Product Videos**, and save the page.
 3. In Settings > Checkout > Edit ... add the My-Videos page with a menu to Profile.

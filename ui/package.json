@@ -6,23 +6,23 @@
     "extensions/*"
   ],
   "scripts": {
-    "generate:backend-url": "node scripts/generate-backend-url.mjs --config uat",
-    "generate:backend-url:uat": "node scripts/generate-backend-url.mjs --config uat",
-    "generate:backend-url:prod": "node scripts/generate-backend-url.mjs --config shopify.app.toml",
+    "generate:backend-url": "node scripts/generate-backend-url.mjs",
+    "generate:backend-url:uat": "node scripts/generate-backend-url.mjs",
+    "generate:backend-url:prod": "node scripts/generate-backend-url.mjs",
 
     "shopify": "shopify",
-    "build": "npm run generate:backend-url && shopify app build",
+    "build": "npm run generate:backend-url && shopify app build --config shopify.app.toml",
 
-    "dev": "npm run generate:backend-url && shopify app dev --config uat",
-    "shopify:dev": "npm run generate:backend-url && shopify app dev --config uat",
+    "dev": "npm run generate:backend-url && shopify app dev --config shopify.app.toml",
+    "shopify:dev": "npm run generate:backend-url && shopify app dev --config shopify.app.toml",
     "shopify:dev:uat": "npm run generate:backend-url:uat && shopify app dev --config uat",
     "shopify:dev:prod": "npm run generate:backend-url:uat && shopify app dev --config shopify.app.toml",
 
     "info": "shopify app info",
     "generate": "shopify app generate",
     
-    "deploy": "npm run generate:backend-url && shopify app deploy --config uat",
-    "shopify:deploy": "npm run generate:backend-url && shopify app deploy --config uat",
+    "deploy": "npm run generate:backend-url && shopify app deploy --config shopify.app.toml",
+    "shopify:deploy": "npm run generate:backend-url && shopify app deploy --config shopify.app.toml",
     "shopify:deploy:uat": "npm run generate:backend-url:uat && shopify app deploy --config uat",
     "shopify:deploy:prod": "npm run generate:backend-url:uat && shopify app deploy --config shopify.app.toml"
   },

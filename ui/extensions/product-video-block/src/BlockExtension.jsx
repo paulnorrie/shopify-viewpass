@@ -56,15 +56,15 @@ function Extension() {
    */ 
   useEffect(() => {
     async function loadInitialData() {
-      try {    
-        // call backend API endpoint passing the product ID
+     try {    
+       // call backend API endpoint passing the product ID
         const response = await fetch(`/products/${encodeURIComponent(productId)}`);
         if (response.ok) {
             if (response.status != 204 && response.status != 404 && 
                 response.headers.get('content-length') != '0') {
-                console.log(`Response ${response.status} ${response.headers.get('content-length')}`);
+                //console.log(`Response ${response.status} ${response.headers.get('content-length')}`);
                 const payload = await response.json();  
-                console.log(`Payload of Product Extension is ${payload}`);
+                //console.log(`Payload of Product Extension is ${payload}`);
                 setVideos(payload?.videos || []); 
                 setLicenceDurationDays(payload?.licenceDurationDays || 3);
             }
@@ -73,7 +73,7 @@ function Extension() {
         console.error("Failed to fetch video data for product:", error);
       }
     }
-
+    
     loadInitialData();
 
   }, [productId]); 
@@ -140,41 +140,41 @@ function Extension() {
    * Save the records
    * @param {*} event 
    */ 
-  const onSubmit = async (event) => {
-    
-    //console.log("Saving!!! ", videos, " = ", JSON.stringify(videos), " = ", JSON.stringify({videos: videos}));
+  const onSubmit = (event) => {
     setIsSaving(true);
-    event.preventDefault(); // stop browser doing default actions
-
-    try {
-             
-        // Post to backend
-        const response = await
-            fetch(`/products/${encodeURIComponent(productId)}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    licenceDurationDays: licenceDurationDays,
-                    videos: videos
-                })
+    console.log("Saving!!! ", videos, " = ", JSON.stringify(videos), " = ", JSON.stringify({videos: videos}));
+    
+    const savePromise = fetch(`/products/${encodeURIComponent(productId)}`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                licenceDurationDays: licenceDurationDays,
+                videos: videos
             })
+        })
+        .then((response) => {
+            
+            if (!response.ok) {
+                throw new Error('Failed to save videos');
+            }
+            
+            console.log("SAVING: Ok");
+            // Shopify Save Bar will auto-dismiss cleanly here
+        })
+        .catch((error) => {
+            console.error("Failed to save product videos:", error);
+            throw error; 
+        })
+        .finally(() => {
+            setIsSaving(false);
+        });
 
-        if (!response.ok) {
-            throw new Error('Failed to save videos');
-        }
+    event?.waitUntil?.(savePromise);
 
-        // Tell shopify success are all good to hide the save bar
-        event.currentTarget.reset();
-        setIsDirty(false);
-
-
-    }catch (error) {
-        console.error("Failed to save data:", error);
-    }finally {
-        setIsSaving(false);
-    }
+    return savePromise;
   };
 
 
@@ -212,7 +212,7 @@ function Extension() {
                 </s-grid-item>
 
                 <s-grid-item gridColumn="span 3">
-                    <s-section>
+                    <s-section accessibilityLabel="Delay">
                     <s-text>Delay (days)</s-text>
                     </s-section>
                 </s-grid-item>

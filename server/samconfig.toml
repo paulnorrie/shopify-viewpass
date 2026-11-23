@@ -11,8 +11,17 @@ image_repositories = []
 region = "ap-southeast-2"
 
 [default.global.parameters]
-region = "ap-southeast-2"
+region = "us-east-1"
 
+
+[default.deploy.parameters]
+stack_name = "shopify-viewpass"
+resolve_s3 = true
+s3_prefix = "shopify-viewpass"
+profile = "iamadmin-general"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+image_repositories = []
+confirm_changeset = true
 [staging.deploy.parameters]
 stack_name = "shopify-viewpass"
 profile = "staging"

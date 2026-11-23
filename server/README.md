@@ -8,8 +8,8 @@
 
 ## Creating the AWS Stack
 The Shopify App in [ui](../ui) supports two Shopify sites: one for uat
-and one for production as the are configured as different apps.  This means you can have two
-corresponding AWS accounts: for uat and for production.
+and one for development & production as they are configured as different apps.  This means you can have two
+corresponding AWS accounts: for uat and for dev/production.
 
 ### Configure your Shopify Client Secret and Id in your AWS Stack
 You need to first populate the Shopify Client Secret and Client Id to be able to authenticate requests.
