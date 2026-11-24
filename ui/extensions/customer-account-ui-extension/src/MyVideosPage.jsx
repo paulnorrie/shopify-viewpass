@@ -259,7 +259,7 @@ function Extension() {
   const licencesToRender = Array.isArray(licences) ? licences : [];
 
   return (
-    <s-page heading="My Videos" subheading="Your saved items">
+    <s-page heading="My Videos" subheading="Your licenced Empower Therapies videos">
       {licencesToRender.length === 0 ? (
         <s-section heading="No videos yet">
           <s-text>You don't have any licensed videos yet.</s-text>

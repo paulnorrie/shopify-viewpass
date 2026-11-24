@@ -125,7 +125,7 @@ export const renderPlayer = async (customerId, videoUrl) => {
           html, body {
             margin: 0;
             min-height: 100%;
-            background: #000;
+            background: #82cfea;
             font-family: Arial, sans-serif;
           }
 
