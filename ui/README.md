@@ -37,7 +37,7 @@ Use the scripts above rather than running `shopify app deploy` directly, so the 
 
 ### To run the app locally during development
 
-For dev & production:
+For dev:
 ```shell
 npm run dev
 ```
