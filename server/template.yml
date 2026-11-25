@@ -243,9 +243,9 @@ Resources:
                 "Item": {
                   "customerId": { "S.$": "$.customerId" },
                   "videoUrl": { "S.$": "$.videoUrl" },
-                  "uniqueSeconds": { "N": "$.uniqueSeconds" },
-                  "coveragePercent": { "N": "$.coveragePercent" },
-                  "timestamp": { "N": "$.timestamp" }
+                  "uniqueSeconds": { "N.$": "States.Format('{}', $.uniqueSeconds)" },
+                  "coveragePercent": { "N.$": "States.Format('{}', $.coveragePercent)" },
+                  "timestamp": { "N.$": "$.timestamp" }
                 }
               },
               "End": true
