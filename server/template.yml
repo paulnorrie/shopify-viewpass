@@ -45,6 +45,10 @@ Resources:
                 Resource:
                   - !GetAtt ProductsTable.Arn
                   - !GetAtt LicencesTable.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !GetAtt ViewStatsTable.Arn
               # Allow access to all SSM Parameters
               - Effect: Allow
                 Action:
@@ -82,6 +86,7 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
                   - dynamodb:GetItem
+                  - dynamodb:Query
                 Resource: !GetAtt ViewStatsTable.Arn
   
 
@@ -205,20 +210,46 @@ Resources:
       StateMachineName: GetItemFromDynamoDB
       StateMachineType: EXPRESS
       RoleArn: !GetAtt StepFunctionsExecutionRole.Arn
+      # DefinitionString: !Sub |
+      #   {
+      #     "Comment": "Query all items for a customerId from DynamoDB",
+      #     "StartAt": "DynamoDBQuery",
+      #     "States": {
+      #       "DynamoDBQuery": {
+      #         "Type": "Task",
+      #         "Resource": "arn:aws:states:::aws-sdk:dynamodb:query",
+      #         "Parameters": {
+      #           "TableName": "${ViewStatsTable}",
+      #           "KeyConditionExpression": "customerId = :cid",
+      #           "ExpressionAttributeValues": {
+      #             ":cid": {
+      #               "S.$": "States.Format('{}', $)"
+      #             }
+      #           }
+      #         },
+      #         "End": true
+      #       }
+      #     }
+      #   }
       DefinitionString: !Sub |
         {
-          "Comment": "Fetch an item from DynamoDB",
-          "StartAt": "DynamoDBGetItem",
+          "Comment": "Query and flatten items for a customerId from DynamoDB",
+          "QueryLanguage": "JSONata",
+          "StartAt": "DynamoDBQuery",
           "States": {
-            "DynamoDBGetItem": {
+            "DynamoDBQuery": {
               "Type": "Task",
-              "Resource": "arn:aws:states:::aws-sdk:dynamodb:getItem",
-              "Parameters": {
+              "Resource": "arn:aws:states:::aws-sdk:dynamodb:query",
+              "Arguments": {
                 "TableName": "${ViewStatsTable}",
-                "Key": {
-                  "customerId": { "S.$": "$.customerId" }
+                "KeyConditionExpression": "customerId = :cid",
+                "ExpressionAttributeValues": {
+                  ":cid": {
+                    "S": "{% $string($states.input) %}"
+                  }
                 }
               },
+              "Output": "{% [$states.result.Items.{ 'customerId': customerId.S, 'videoUrl': videoUrl.S, 'coveragePercent': $number(coveragePercent.N), 'uniqueSeconds': $number(uniqueSeconds.N), 'timestamp': $number(timestamp.N) }] %}",
               "End": true
             }
           }
@@ -310,7 +341,8 @@ Resources:
         # This extracts the 'id' variable out of your HTTP route path (e.g., /viewstats/{customerId})
         # and passes it as JSON input into the Step Function execution payload
         Input: "{\"customerId\": \"$request.path.customerId\"}"
-
+        #Input: $request.path.customerId
+    
   # ... and same for POST/Put-Item
   HttpApiPostStepFunctionIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -406,7 +438,11 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: 'GET /viewstats/{customerId}'
-      Target: !Sub 'integrations/${HttpApiGetStepFunctionIntegration}'
+      #Target: !Sub 'integrations/${HttpApiGetStepFunctionIntegration}'
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref HttpApiLambdaIntegration
   # TODO: JWT authentication
 
   LambdaPermissionForHttpApi:

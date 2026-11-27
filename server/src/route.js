@@ -8,6 +8,7 @@ import { issueLicence, getLicences } from "./licences.js";
 import { createPlayerToken, verifyPlayerToken, renderPlayer } from "./player.js";
 import { StdRespForbidden, StdRespNotFound, StdRespServerError, StdRespOk, StdRespBadRequest } from "./responses.js";
 import {logger} from "./logger.js";
+import { getViewStats } from "./viewstats.js";
 
 /**
  * @typedef {Object} HttpResponse
@@ -131,6 +132,24 @@ export const route = async (routeKey, params, headers, body, queryParams, client
                     result = StdRespOk("text/plain", token);
                 } else {
                     result = StdRespBadRequest;
+                }
+            }
+            break;
+
+            case "GET /viewstats/{customerId}": {
+                //if (! await authShopifyRequest(headers, body, clientId, clientSecret) ) return StdRespForbidden;
+                try {
+                    if (! params.customerId) {
+                        logger.debug("viewstats: no customerId");
+                        result = StdRespBadRequest;
+                    } else {
+                        const customerId = params?.customerId || "";
+                        const stats = await getViewStats(customerId);
+                        result = StdRespOk("application/json", stats);
+                    }
+                } catch (error) {
+                    logger.error(`Error getting viewstats for customerId=${params.customerId}: ${error}`);
+                    result = StdRespServerError;
                 }
             }
             break;
